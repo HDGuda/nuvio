@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ gutschrift.nummer }} – Nuvio{% endblock %}
+{% block seitentitel %}{{ gutschrift.nummer }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'gutschrift_bearbeiten' gutschrift.pk %}" class="btn btn-secondary">Bearbeiten</a>
+    <a href="{% url 'gutschrift_pdf' gutschrift.pk %}" class="btn btn-gold" target="_blank">PDF erzeugen</a>
+    <a href="{% url 'gutschrift_email' gutschrift.pk %}" class="btn btn-primary">✉ Per E-Mail senden</a>
+    <a href="{% url 'gutschrift_loeschen' gutschrift.pk %}" class="btn btn-danger">Löschen</a>
+{% endblock %}
+
+{% block inhalt %}
+{% load nuvio_filters %}
+
+<!-- KOPFDATEN -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Gutschriftdaten</div></div>
+        <div class="card-body">
+            <table style="width: 100%; font-size: 14px;">
+                <tr><td style="color: #999; padding: 6px 0; width: 140px;">Nummer</td><td><strong>{{ gutschrift.nummer }}</strong></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Kunde</td><td><a href="{% url 'kunde_detail' gutschrift.kunde.pk %}">{{ gutschrift.kunde }}</a></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Datum</td><td>{{ gutschrift.datum|date:"d.m.Y" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ gutschrift.status }}">{{ gutschrift.get_status_display }}</span></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Betreff</td><td>{{ gutschrift.betreff|default:"–" }}</td></tr>
+                {% if gutschrift.rechnung %}
+                <tr><td style="color: #999; padding: 6px 0;">Zu Rechnung</td><td><a href="{% url 'rechnung_detail' gutschrift.rechnung.pk %}">{{ gutschrift.rechnung.nummer }}</a></td></tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Summen</div></div>
+        <div class="card-body">
+            <table style="width: 100%; font-size: 14px;">
+                <tr><td style="color: #999; padding: 6px 0;">Nettobetrag</td><td class="text-rechts">{{ gutschrift.netto|euro }} €</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">MwSt.</td><td class="text-rechts">{{ gutschrift.mwst_gesamt|euro }} €</td></tr>
+                <tr style="border-top: 2px solid #1a1a2e;">
+                    <td style="padding: 10px 0;"><strong>Gesamtbetrag</strong></td>
+                    <td class="text-rechts"><strong style="font-size: 18px;">{{ gutschrift.brutto|euro }} €</strong></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- POSITIONEN -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">Positionen</div></div>
+    <div class="card-body" style="padding: 0;">
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Bezeichnung</th>
+                    <th>Menge</th>
+                    <th>Einheit</th>
+                    <th class="text-rechts">Einzelpreis</th>
+                    <th class="text-rechts">MwSt.</th>
+                    <th class="text-rechts">Gesamt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in gutschrift.positionen.all %}
+                <tr>
+                    <td class="text-grau">{{ forloop.counter }}</td>
+                    <td>
+                        <strong>{{ position.bezeichnung }}</strong>
+                        {% if position.beschreibung %}
+                        <div class="text-grau text-klein">{{ position.beschreibung }}</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ position.menge|euro }}</td>
+                    <td>{{ position.einheit }}</td>
+                    <td class="text-rechts">{{ position.einzelpreis_netto|euro }} €</td>
+                    <td class="text-rechts">{{ position.steuersatz|prozent }} %</td>
+                    <td class="text-rechts"><strong>{{ position.gesamtpreis_netto|euro }} €</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TEXTE -->
+{% if gutschrift.einleitungstext or gutschrift.schlusstext %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    {% if gutschrift.einleitungstext %}
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Einleitungstext</div></div>
+        <div class="card-body"><p style="line-height: 1.7;">{{ gutschrift.einleitungstext|safe }}</p></div>
+    </div>
+    {% endif %}
+    {% if gutschrift.schlusstext %}
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Schlusstext</div></div>
+        <div class="card-body"><p style="line-height: 1.7;">{{ gutschrift.schlusstext|safe }}</p></div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ZURÜCK -->
+<a href="{% url 'gutschriften_liste' %}" class="btn btn-secondary mt-16">← Zurück zur Liste</a>
+
+{% endblock %}

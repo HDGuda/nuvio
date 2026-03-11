@@ -1,0 +1,484 @@
+{% extends "base.html" %}
+
+{% block titel %}Einstellungen – Nuvio
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    editorInit('editor-angebot-einleitung',  'id_angebot_einleitung','{{ form.angebot_einleitung.value|default:""|escapejs }}');
+    editorInit('editor-angebot-schluss',     'id_angebot_schlusstext', '{{ form.angebot_schlusstext.value|default:""|escapejs }}');
+    editorInit('editor-rechnung-einleitung', 'id_rechnung_einleitung', '{{ form.rechnung_einleitung.value|default:""|escapejs }}');
+    editorInit('editor-rechnung-schluss',    'id_rechnung_schlusstext','{{ form.rechnung_schlusstext.value|default:""|escapejs }}');
+    editorInit('editor-zahlungsbedingungen', 'id_zahlungsbedingungen', '{{ form.zahlungsbedingungen.value|default:""|escapejs }}');
+    editorInit('editor-email-angebot-text',    'id_email_angebot_text',    '{{ form.email_angebot_text.value|default:""|escapejs }}');
+    editorInit('editor-email-rechnung-text',   'id_email_rechnung_text',   '{{ form.email_rechnung_text.value|default:""|escapejs }}');
+    editorInit('editor-email-gutschrift-text', 'id_email_gutschrift_text', '{{ form.email_gutschrift_text.value|default:""|escapejs }}');
+});
+</script>
+{% endblock %}
+{% block seitentitel %}Einstellungen
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    editorInit('editor-angebot-einleitung',  'id_angebot_einleitung','{{ form.angebot_einleitung.value|default:""|escapejs }}');
+    editorInit('editor-angebot-schluss',     'id_angebot_schlusstext', '{{ form.angebot_schlusstext.value|default:""|escapejs }}');
+    editorInit('editor-rechnung-einleitung', 'id_rechnung_einleitung', '{{ form.rechnung_einleitung.value|default:""|escapejs }}');
+    editorInit('editor-rechnung-schluss',    'id_rechnung_schlusstext','{{ form.rechnung_schlusstext.value|default:""|escapejs }}');
+    editorInit('editor-zahlungsbedingungen', 'id_zahlungsbedingungen', '{{ form.zahlungsbedingungen.value|default:""|escapejs }}');
+    editorInit('editor-email-angebot-text',    'id_email_angebot_text',    '{{ form.email_angebot_text.value|default:""|escapejs }}');
+    editorInit('editor-email-rechnung-text',   'id_email_rechnung_text',   '{{ form.email_rechnung_text.value|default:""|escapejs }}');
+    editorInit('editor-email-gutschrift-text', 'id_email_gutschrift_text', '{{ form.email_gutschrift_text.value|default:""|escapejs }}');
+});
+</script>
+{% endblock %}
+
+{% block inhalt %}
+
+<form method="post" enctype="multipart/form-data">
+{% csrf_token %}
+
+<!-- FIRMENDATEN -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">Firmendaten</div></div>
+    <div class="card-body">
+        <div class="form-reihe">
+            <div class="form-gruppe"><label>Firmenname</label>{{ form.firma_name }}</div>
+            <div class="form-gruppe"><label>Zusatz</label>{{ form.firma_zusatz }}</div>
+            <div class="form-gruppe"><label>Zusatz 2</label>{{ form.firma_zusatz2 }}</div>
+        </div>
+        <div class="form-gruppe"><label>Straße</label>{{ form.strasse }}</div>
+        <div class="form-reihe">
+            <div class="form-gruppe"><label>PLZ</label>{{ form.plz }}</div>
+            <div class="form-gruppe"><label>Ort</label>{{ form.ort }}</div>
+        </div>
+        <div class="form-reihe">
+            <div class="form-gruppe"><label>Telefon</label>{{ form.telefon }}</div>
+            <div class="form-gruppe"><label>E-Mail</label>{{ form.email }}</div>
+            <div class="form-gruppe"><label>Website</label>{{ form.website }}</div>
+        </div>
+        <div class="form-gruppe">
+            <label>Logo</label>
+            {% if form.instance.logo %}
+            <div style="margin-bottom: 10px;">
+                <img src="{{ form.instance.logo.url }}" style="max-height: 60px; border: 1px solid #eee; padding: 4px; border-radius: 4px;">
+                <div class="text-grau text-klein" style="margin-top: 4px;">Aktuelles Logo – neues Bild hochladen zum Ersetzen</div>
+            </div>
+            {% endif %}
+            {{ form.logo }}
+        </div>
+        <div class="form-gruppe">
+            <label>Hintergrund-PDF</label>
+            {% if form.instance.hintergrund_pdf %}
+            <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+                <a href="{{ form.instance.hintergrund_pdf.url }}" target="_blank"
+                   style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; color: #333; text-decoration: none; background: #fafafa;">
+                    📄 {{ form.instance.hintergrund_pdf.name|cut:"hintergrund/" }}
+                </a>
+                <div class="text-grau text-klein">Aktuelles Hintergrund-PDF – neue Datei hochladen zum Ersetzen</div>
+            </div>
+            {% endif %}
+            {{ form.hintergrund_pdf }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">
+                Wird als Hintergrund (z.&nbsp;B. Briefpapier) für alle PDF-Ausgaben verwendet. Nur eine Seite nötig – wird für mehrseitige Dokumente wiederholt.
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STEUER & BANK -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Steuerdaten</div></div>
+        <div class="card-body">
+            <div class="form-gruppe"><label>Steuernummer</label>{{ form.steuernummer }}</div>
+            <div class="form-gruppe"><label>USt-IdNr.</label>{{ form.ust_id }}</div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Bankverbindung</div></div>
+        <div class="card-body">
+            <div class="form-gruppe"><label>Bank</label>{{ form.bank_name }}</div>
+            <div class="form-gruppe"><label>IBAN</label>{{ form.iban }}</div>
+            <div class="form-gruppe"><label>BIC</label>{{ form.bic }}</div>
+        </div>
+    </div>
+</div>
+
+<!-- NUMMERNKREISE -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Nummernkreis Angebote</div></div>
+        <div class="card-body">
+            <div class="form-reihe">
+                <div class="form-gruppe"><label>Präfix</label>{{ form.angebot_prefix }}</div>
+                <div class="form-gruppe"><label>Nächste Nummer</label>{{ form.angebot_naechste_nummer }}</div>
+            </div>
+            <div class="form-gruppe">
+                <label>Format</label>{{ form.angebot_format }}
+                <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>AN-2026-0001</strong></div>
+            </div>
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Nummernkreis Rechnungen</div></div>
+        <div class="card-body">
+            <div class="form-reihe">
+                <div class="form-gruppe"><label>Präfix</label>{{ form.rechnung_prefix }}</div>
+                <div class="form-gruppe"><label>Nächste Nummer</label>{{ form.rechnung_naechste_nummer }}</div>
+            </div>
+            <div class="form-gruppe">
+                <label>Format</label>{{ form.rechnung_format }}
+                <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>RE-2026-0001</strong></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- NUMMERNKREIS GUTSCHRIFTEN -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">Nummernkreis Gutschriften</div></div>
+    <div class="card-body">
+        <div class="form-reihe">
+            <div class="form-gruppe"><label>Präfix</label>{{ form.gutschrift_prefix }}</div>
+            <div class="form-gruppe"><label>Nächste Nummer</label>{{ form.gutschrift_naechste_nummer }}</div>
+        </div>
+        <div class="form-gruppe">
+            <label>Format</label>{{ form.gutschrift_format }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>GS-2026-0001</strong></div>
+        </div>
+    </div>
+</div>
+
+<!-- STANDARDTEXTE ANGEBOTE -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">Standardtexte für Angebote</div></div>
+    <div class="card-body">
+        <div class="form-gruppe">
+            <label>Einleitungstext</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                    <select onchange="platzhalterEinfuegen(this, 'editor-angebot-einleitung', 'id_angebot_einleitung')"
+                            style="font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:3px;">
+                        <option value="">Platzhalter einfügen…</option>
+                        <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
+                    <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                    <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
+                    <option value="&#123;&#123;angebot_nummer&#125;&#125;">Angebotsnummer</option>
+                    <option value="&#123;&#123;angebot_datum&#125;&#125;">Angebotsdatum</option>
+                    </select>
+                </div>
+                <div id="editor-angebot-einleitung" class="editor-box" contenteditable="true"></div>
+                <input type="hidden" name="angebot_einleitung" id="id_angebot_einleitung" value="{{ form.angebot_einleitung.value|default:""|escapejs }}">
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>Schlusstext</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                    <select onchange="platzhalterEinfuegen(this, 'editor-angebot-schluss', 'id_angebot_schlusstext')"
+                            style="font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:3px;">
+                        <option value="">Platzhalter einfügen…</option>
+                        <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
+                    <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                    <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
+                    <option value="&#123;&#123;angebot_nummer&#125;&#125;">Angebotsnummer</option>
+                    <option value="&#123;&#123;angebot_datum&#125;&#125;">Angebotsdatum</option>
+                    </select>
+                </div>
+                <div id="editor-angebot-schluss" class="editor-box" contenteditable="true"></div>
+                <input type="hidden" name="angebot_schlusstext" id="id_angebot_schlusstext" value="{{ form.angebot_schlusstext.value|default:""|escapejs }}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- STANDARDTEXTE RECHNUNGEN -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">Standardtexte für Rechnungen</div></div>
+    <div class="card-body">
+        <div class="form-gruppe">
+            <label>Einleitungstext</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                    <select onchange="platzhalterEinfuegen(this, 'editor-rechnung-einleitung', 'id_rechnung_einleitung')"
+                            style="font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:3px;">
+                        <option value="">Platzhalter einfügen…</option>
+                        <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
+                    <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                    <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
+                    <option value="&#123;&#123;angebot_nummer&#125;&#125;">Rechnungsnummer</option>
+                    <option value="&#123;&#123;angebot_datum&#125;&#125;">Rechnungsdatum</option>
+                    </select>
+                </div>
+                <div id="editor-rechnung-einleitung" class="editor-box" contenteditable="true"></div>
+                <input type="hidden" name="rechnung_einleitung" id="id_rechnung_einleitung" value="{{ form.rechnung_einleitung.value|default:""|escapejs }}">
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>Schlusstext</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                    <select onchange="platzhalterEinfuegen(this, 'editor-rechnung-schluss', 'id_rechnung_schlusstext')"
+                            style="font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:3px;">
+                        <option value="">Platzhalter einfügen…</option>
+                        <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
+                    <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                    <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
+                    <option value="&#123;&#123;angebot_nummer&#125;&#125;">Rechnungsnummer</option>
+                    <option value="&#123;&#123;angebot_datum&#125;&#125;">Rechnungsdatum</option>
+                    </select>
+                </div>
+                <div id="editor-rechnung-schluss" class="editor-box" contenteditable="true"></div>
+                <input type="hidden" name="rechnung_schlusstext" id="id_rechnung_schlusstext" value="{{ form.rechnung_schlusstext.value|default:""|escapejs }}">
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>Zahlungsbedingungen</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                </div>
+                <div id="editor-zahlungsbedingungen" class="editor-box" contenteditable="true"></div>
+                <input type="hidden" name="zahlungsbedingungen" id="id_zahlungsbedingungen" value="{{ form.zahlungsbedingungen.value|default:""|escapejs }}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- E-MAIL-VORLAGEN ANGEBOT -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">E-Mail-Vorlage: Angebote</div></div>
+    <div class="card-body">
+        <div class="form-gruppe">
+            <label>Betreff-Vorlage</label>
+            {{ form.email_angebot_betreff }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">
+                Platzhalter: <code>{{nummer}}</code>, <code>{{kundenname}}</code>, <code>{{firma}}</code>, <code>{{datum}}</code>
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>E-Mail-Text</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                </div>
+                <div id="editor-email-angebot-text" class="editor-box" contenteditable="true" style="min-height: 120px;"></div>
+                <input type="hidden" name="email_angebot_text" id="id_email_angebot_text" value="{{ form.email_angebot_text.value|default:""|escapejs }}">
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>Standard-Anhang 1</label>
+            {% if form.instance.email_angebot_anhang1 %}
+            <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 13px; color: #555;">📎 {{ form.instance.email_angebot_anhang1.name|cut:"email_anhaenge/" }}</span>
+                <span class="text-grau text-klein">– neue Datei hochladen zum Ersetzen</span>
+            </div>
+            {% endif %}
+            {{ form.email_angebot_anhang1 }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">Wird automatisch an jede Angebots-E-Mail angehängt (z.&nbsp;B. AGB).</div>
+        </div>
+        <div class="form-gruppe">
+            <label>Standard-Anhang 2</label>
+            {% if form.instance.email_angebot_anhang2 %}
+            <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 13px; color: #555;">📎 {{ form.instance.email_angebot_anhang2.name|cut:"email_anhaenge/" }}</span>
+                <span class="text-grau text-klein">– neue Datei hochladen zum Ersetzen</span>
+            </div>
+            {% endif %}
+            {{ form.email_angebot_anhang2 }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">Optionaler zweiter Standard-Anhang (z.&nbsp;B. Widerrufsbelehrung).</div>
+        </div>
+    </div>
+</div>
+
+<!-- E-MAIL-VORLAGEN RECHNUNG -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">E-Mail-Vorlage: Rechnungen</div></div>
+    <div class="card-body">
+        <div class="form-gruppe">
+            <label>Betreff-Vorlage</label>
+            {{ form.email_rechnung_betreff }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">
+                Platzhalter: <code>{{nummer}}</code>, <code>{{kundenname}}</code>, <code>{{firma}}</code>, <code>{{datum}}</code>
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>E-Mail-Text</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                </div>
+                <div id="editor-email-rechnung-text" class="editor-box" contenteditable="true" style="min-height: 120px;"></div>
+                <input type="hidden" name="email_rechnung_text" id="id_email_rechnung_text" value="{{ form.email_rechnung_text.value|default:""|escapejs }}">
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>Standard-Anhang 1</label>
+            {% if form.instance.email_rechnung_anhang1 %}
+            <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 13px; color: #555;">📎 {{ form.instance.email_rechnung_anhang1.name|cut:"email_anhaenge/" }}</span>
+                <span class="text-grau text-klein">– neue Datei hochladen zum Ersetzen</span>
+            </div>
+            {% endif %}
+            {{ form.email_rechnung_anhang1 }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">Wird automatisch an jede Rechnungs-E-Mail angehängt (z.&nbsp;B. AGB).</div>
+        </div>
+        <div class="form-gruppe">
+            <label>Standard-Anhang 2</label>
+            {% if form.instance.email_rechnung_anhang2 %}
+            <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 13px; color: #555;">📎 {{ form.instance.email_rechnung_anhang2.name|cut:"email_anhaenge/" }}</span>
+                <span class="text-grau text-klein">– neue Datei hochladen zum Ersetzen</span>
+            </div>
+            {% endif %}
+            {{ form.email_rechnung_anhang2 }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">Optionaler zweiter Standard-Anhang.</div>
+        </div>
+    </div>
+</div>
+
+<!-- E-MAIL-VORLAGEN GUTSCHRIFT -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">E-Mail-Vorlage: Gutschriften</div></div>
+    <div class="card-body">
+        <div class="form-gruppe">
+            <label>Betreff-Vorlage</label>
+            {{ form.email_gutschrift_betreff }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">
+                Platzhalter: <code>{{nummer}}</code>, <code>{{kundenname}}</code>, <code>{{firma}}</code>, <code>{{datum}}</code>
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>E-Mail-Text</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                </div>
+                <div id="editor-email-gutschrift-text" class="editor-box" contenteditable="true" style="min-height: 120px;"></div>
+                <input type="hidden" name="email_gutschrift_text" id="id_email_gutschrift_text" value="{{ form.email_gutschrift_text.value|default:""|escapejs }}">
+            </div>
+        </div>
+        <div class="form-gruppe">
+            <label>Standard-Anhang 1</label>
+            {% if form.instance.email_gutschrift_anhang1 %}
+            <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 13px; color: #555;">📎 {{ form.instance.email_gutschrift_anhang1.name|cut:"email_anhaenge/" }}</span>
+                <span class="text-grau text-klein">– neue Datei hochladen zum Ersetzen</span>
+            </div>
+            {% endif %}
+            {{ form.email_gutschrift_anhang1 }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">Wird automatisch an jede Gutschrift-E-Mail angehängt.</div>
+        </div>
+        <div class="form-gruppe">
+            <label>Standard-Anhang 2</label>
+            {% if form.instance.email_gutschrift_anhang2 %}
+            <div style="margin-bottom: 8px; display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 13px; color: #555;">📎 {{ form.instance.email_gutschrift_anhang2.name|cut:"email_anhaenge/" }}</span>
+                <span class="text-grau text-klein">– neue Datei hochladen zum Ersetzen</span>
+            </div>
+            {% endif %}
+            {{ form.email_gutschrift_anhang2 }}
+            <div class="text-grau text-klein" style="margin-top: 4px;">Optionaler zweiter Standard-Anhang.</div>
+        </div>
+    </div>
+</div>
+
+<!-- SPEICHERN -->
+<div style="display: flex; gap: 10px;">
+    <button type="submit" class="btn btn-primary">Einstellungen speichern</button>
+</div>
+
+</form>
+
+<style>
+    .editor-toolbar { display: flex; gap: 4px; padding: 6px 8px; background: #f5f5f5; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; }
+    .editor-toolbar button { padding: 3px 8px; border: 1px solid #ccc; background: #fff; border-radius: 3px; cursor: pointer; font-size: 13px; }
+    .editor-toolbar button:hover { background: #e8e8e8; }
+    .editor-box { min-height: 80px; padding: 10px 12px; border: 1px solid #ddd; border-radius: 0 0 4px 4px; font-size: 14px; font-family: inherit; line-height: 1.6; outline: none; background: #fff; box-sizing: border-box; width: 100%; }
+    .editor-box:focus { border-color: #1a1a2e; }
+</style>
+
+<script>
+function editorFett(btn) {
+    document.execCommand('bold', false, null);
+    btn.closest('.editor-wrapper').querySelector('.editor-box').focus();
+}
+function editorKursiv(btn) {
+    document.execCommand('italic', false, null);
+    btn.closest('.editor-wrapper').querySelector('.editor-box').focus();
+}
+
+function platzhalterEinfuegen(selectEl, editorId, hiddenId) {
+    var wert = selectEl.value;
+    if (!wert) return;
+    var editor = document.getElementById(editorId);
+    if (!editor) return;
+
+    editor.focus();
+    var saved = editor._savedRange;
+    if (saved) {
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(saved);
+    }
+
+    var sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+        var range = sel.getRangeAt(0);
+        range.deleteContents();
+        var textNode = document.createTextNode(wert);
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.setEndAfter(textNode);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        editor.appendChild(document.createTextNode(wert));
+    }
+
+    document.getElementById(hiddenId).value = editor.innerHTML;
+    setTimeout(function() { selectEl.value = ''; }, 0);
+}
+
+function editorInit(editorId, hiddenId, initialValue) {
+    var editor = document.getElementById(editorId);
+    var hidden = document.getElementById(hiddenId);
+    if (!editor || !hidden) return;
+    if (initialValue) {
+        editor.innerHTML = initialValue;
+        hidden.value = initialValue;
+    }
+    editor.addEventListener('input', function() { hidden.value = editor.innerHTML; });
+    editor.addEventListener('blur', function() {
+        var sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            editor._savedRange = sel.getRangeAt(0).cloneRange();
+        }
+        hidden.value = editor.innerHTML;
+    });
+}
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    editorInit('editor-angebot-einleitung',  'id_angebot_einleitung','{{ form.angebot_einleitung.value|default:""|escapejs }}');
+    editorInit('editor-angebot-schluss',     'id_angebot_schlusstext', '{{ form.angebot_schlusstext.value|default:""|escapejs }}');
+    editorInit('editor-rechnung-einleitung', 'id_rechnung_einleitung', '{{ form.rechnung_einleitung.value|default:""|escapejs }}');
+    editorInit('editor-rechnung-schluss',    'id_rechnung_schlusstext','{{ form.rechnung_schlusstext.value|default:""|escapejs }}');
+    editorInit('editor-zahlungsbedingungen', 'id_zahlungsbedingungen', '{{ form.zahlungsbedingungen.value|default:""|escapejs }}');
+    editorInit('editor-email-angebot-text',    'id_email_angebot_text',    '{{ form.email_angebot_text.value|default:""|escapejs }}');
+    editorInit('editor-email-rechnung-text',   'id_email_rechnung_text',   '{{ form.email_rechnung_text.value|default:""|escapejs }}');
+    editorInit('editor-email-gutschrift-text', 'id_email_gutschrift_text', '{{ form.email_gutschrift_text.value|default:""|escapejs }}');
+});
+</script>
+{% endblock %}

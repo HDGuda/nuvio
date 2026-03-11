@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ angebot.nummer }} – Nuvio{% endblock %}
+{% block seitentitel %}{{ angebot.nummer }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'angebot_bearbeiten' angebot.pk %}" class="btn btn-secondary">Bearbeiten</a>
+    <a href="{% url 'angebot_pdf' angebot.pk %}" class="btn btn-gold" target="_blank">PDF erzeugen</a>
+    <a href="{% url 'angebot_email' angebot.pk %}" class="btn btn-primary">✉ Per E-Mail senden</a>
+    {% if not angebot.rechnung_set.exists %}
+    <a href="{% url 'angebot_in_rechnung' angebot.pk %}" class="btn btn-success">→ Rechnung generieren</a>
+    <a href="{% url 'angebot_loeschen' angebot.pk %}" class="btn btn-danger">Löschen</a>
+    {% else %}
+    <span style="font-size: 13px; color: #999; align-self: center;">✓ Rechnung bereits erstellt</span>
+    {% endif %}
+{% endblock %}
+
+{% block inhalt %}
+
+<!-- KOPFDATEN -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-titel">Angebotsdaten</div>
+        </div>
+        <div class="card-body">
+            <table style="width: 100%; font-size: 14px;">
+                <tr><td style="color: #999; padding: 6px 0; width: 140px;">Nummer</td><td><strong>{{ angebot.nummer }}</strong></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Kunde</td><td><a href="{% url 'kunde_detail' angebot.kunde.pk %}">{{ angebot.kunde }}</a></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Datum</td><td>{{ angebot.datum|date:"d.m.Y" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Gültig bis</td><td>{{ angebot.gueltig_bis|date:"d.m.Y"|default:"–" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ angebot.status }}">{{ angebot.get_status_display }}</span></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Betreff</td><td>{{ angebot.betreff|default:"–" }}</td></tr>
+                {% if angebot.gesendet_am %}
+                <tr><td style="color: #999; padding: 6px 0;">Gesendet am</td><td>{{ angebot.gesendet_am|date:"d.m.Y" }}</td></tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-titel">Summen</div>
+        </div>
+        <div class="card-body">
+            {% load nuvio_filters %}
+            <table style="width: 100%; font-size: 14px;">
+                <tr><td style="color: #999; padding: 6px 0;">Nettobetrag</td><td class="text-rechts">{{ angebot.netto|euro }} €</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">MwSt.</td><td class="text-rechts">{{ angebot.mwst_gesamt|euro }} €</td></tr>
+                <tr style="border-top: 2px solid #1a1a2e;">
+                    <td style="padding: 10px 0;"><strong>Gesamtbetrag</strong></td>
+                    <td class="text-rechts"><strong style="font-size: 18px;">{{ angebot.brutto|euro }} €</strong></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- POSITIONEN -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Positionen</div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% load nuvio_filters %}
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th style="width: 30px;">#</th>
+                    <th>Bezeichnung</th>
+                    <th style="width: 60px;">Menge</th>
+                    <th style="width: 70px;">Einheit</th>
+                    <th class="text-rechts" style="width: 100px;">Einzelpreis</th>
+                    <th class="text-rechts" style="width: 84px;">MwSt.</th>
+                    <th class="text-rechts" style="width: 108px;">Gesamt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in angebot.positionen.all %}
+                <tr>
+                    <td class="text-grau">{{ forloop.counter }}</td>
+                    <td>
+                        <strong>{{ position.bezeichnung }}</strong>
+                        {% if position.beschreibung %}
+                        <div class="text-grau text-klein">{{ position.beschreibung }}</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ position.menge|euro }}</td>
+                    <td>{{ position.einheit }}</td>
+                    <td class="text-rechts">{{ position.einzelpreis_netto|euro }} €</td>
+                    <td class="text-rechts">{{ position.steuersatz|prozent }} %</td>
+                    <td class="text-rechts"><strong>{{ position.gesamtpreis_netto|euro }} €</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TEXTE -->
+{% if angebot.einleitungstext or angebot.schlusstext %}
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+    {% if angebot.einleitungstext %}
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Einleitungstext</div></div>
+        <div class="card-body"><p style="line-height: 1.7;">{{ angebot.einleitungstext|safe }}</p></div>
+    </div>
+    {% endif %}
+    {% if angebot.schlusstext %}
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Schlusstext</div></div>
+        <div class="card-body"><p style="line-height: 1.7;">{{ angebot.schlusstext|safe }}</p></div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- ZURÜCK -->
+<a href="{% url 'angebote_liste' %}" class="btn btn-secondary mt-16">← Zurück zur Liste</a>
+
+{% endblock %}

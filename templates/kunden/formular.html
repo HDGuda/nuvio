@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ titel }} – Nuvio{% endblock %}
+{% block seitentitel %}{{ titel }}{% endblock %}
+
+{% block inhalt %}
+
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">{{ titel }}</div>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-reihe">
+                <div class="form-gruppe">
+                    <label>Name/Firma</label>
+                    {{ form.firma }}
+                </div>
+                <div class="form-gruppe">
+                    <label>Ansprechpartner</label>
+                    {{ form.ansprechpartner }}
+                </div>
+            </div>
+
+            <div class="form-gruppe">
+                <label>Straße</label>
+                {{ form.strasse }}
+            </div>
+
+            <div class="form-reihe">
+                <div class="form-gruppe">
+                    <label>PLZ</label>
+                    {{ form.plz }}
+                </div>
+                <div class="form-gruppe">
+                    <label>Ort</label>
+                    {{ form.ort }}
+                </div>
+                <div class="form-gruppe">
+                    <label>Land</label>
+                    {{ form.land }}
+                </div>
+            </div>
+
+            <div class="form-reihe">
+                <div class="form-gruppe">
+                    <label>E-Mail</label>
+                    {{ form.email }}
+                </div>
+                <div class="form-gruppe">
+                    <label>Telefon</label>
+                    {{ form.telefon }}
+                </div>
+                <div class="form-gruppe">
+                    <label>Website</label>
+                    {{ form.website }}
+                </div>
+            </div>
+
+            <div class="form-gruppe">
+                <label>USt-IdNr.</label>
+                {{ form.ust_id }}
+            </div>
+
+            <div class="form-gruppe">
+                <label>Notizen (intern)</label>
+                {{ form.notizen }}
+            </div>
+
+            <hr class="trennlinie">
+
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-primary">Speichern</button>
+                <a href="{% url 'kunden_liste' %}" class="btn btn-secondary">Abbrechen</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

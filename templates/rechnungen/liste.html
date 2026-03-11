@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+
+{% block titel %}Rechnungen – Nuvio{% endblock %}
+{% block seitentitel %}Rechnungen{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'rechnung_neu' %}" class="btn btn-primary">+ Neue Rechnung</a>
+{% endblock %}
+
+{% block inhalt %}
+
+<!-- STATUSFILTER -->
+<div class="card">
+    <div class="card-body" style="padding: 12px 24px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="{% url 'rechnungen_liste' %}" class="btn {% if not status_filter %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 12px; padding: 6px 12px;">Alle</a>
+            {% for wert, label in status_choices %}
+            <a href="?status={{ wert }}" class="btn {% if status_filter == wert %}btn-primary{% else %}btn-secondary{% endif %}" style="font-size: 12px; padding: 6px 12px;">{{ label }}</a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- LISTE -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">
+            {% if status_filter %}
+                Rechnungen: {{ status_filter|capfirst }} ({{ page_obj.paginator.count }})
+            {% else %}
+                Alle Rechnungen ({{ page_obj.paginator.count }})
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if rechnungen %}
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>Nummer</th>
+                    <th>Kunde</th>
+                    <th>Datum</th>
+                    <th>Fällig am</th>
+                    <th>Betreff</th>
+                    <th>Status</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rechnung in rechnungen %}
+                <tr>
+                    <td><a href="{% url 'rechnung_detail' rechnung.pk %}">{{ rechnung.nummer }}</a></td>
+                    <td>{{ rechnung.kunde }}</td>
+                    <td>{{ rechnung.datum|date:"d.m.Y" }}</td>
+                    <td>{{ rechnung.faellig_am|date:"d.m.Y"|default:"–" }}</td>
+                    <td class="text-grau">{{ rechnung.betreff|default:"–" }}</td>
+                    <td>
+                        <span class="badge badge-{{ rechnung.status }}">{{ rechnung.get_status_display }}</span>
+                        {% if rechnung.gutschriften.exists %}
+                        <a href="{% url 'rechnung_detail' rechnung.pk %}" style="margin-left: 4px; font-size: 11px; background: #6c757d; color: #fff; padding: 2px 6px; border-radius: 3px; text-decoration: none;">GS</a>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 6px;">
+                            <a href="{% url 'rechnung_detail' rechnung.pk %}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Detail</a>
+                            <a href="{% url 'rechnung_pdf' rechnung.pk %}" class="btn btn-gold" style="font-size: 12px; padding: 4px 10px;" target="_blank">PDF</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if page_obj.has_other_pages %}
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-top: 1px solid #eee;">
+            <div style="font-size: 13px; color: #999;">
+                Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+                &nbsp;·&nbsp; {{ page_obj.paginator.count }} Einträge gesamt
+            </div>
+            <div style="display: flex; gap: 4px;">
+                {% if page_obj.has_previous %}
+                <a href="?{% if status_filter %}status={{ status_filter }}&{% endif %}page=1" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">«</a>
+                <a href="?{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.previous_page_number }}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">‹</a>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <span class="btn btn-primary" style="font-size: 12px; padding: 5px 10px;">{{ num }}</span>
+                    {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                    <a href="?{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ num }}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <a href="?{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.next_page_number }}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">›</a>
+                <a href="?{% if status_filter %}status={{ status_filter }}&{% endif %}page={{ page_obj.paginator.num_pages }}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">»</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div style="padding: 40px; text-align: center; color: #999;">
+            Keine Rechnungen vorhanden. <a href="{% url 'rechnung_neu' %}">Jetzt anlegen</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

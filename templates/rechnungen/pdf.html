@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="de">
+{% load nuvio_filters %}
+<head>
+<meta charset="UTF-8">
+<style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: 'Calibri', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        font-size: 12px;
+        color: #333;
+        line-height: 1.5;
+        background: transparent;
+    }
+
+    @page {
+        size: A4;
+        margin-top: 20mm;
+        margin-bottom: 10mm;
+        margin-left: 20mm;
+        margin-right: 20mm;
+        background: transparent;
+    }
+
+    /* ── SEITENTABELLE ── */
+    table.seite {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    table.seite > thead > tr > td,
+    table.seite > tbody > tr > td,
+    table.seite > tfoot > tr > td {
+        padding: 0;
+        border: none;
+        vertical-align: top;
+    }
+
+    /* ── KOPFZEILE ── */
+    .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-top: -20mm;
+        padding-top: 8mm;
+        padding-bottom: 8mm;
+    }
+
+    .logo-block .firma {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1a1a2e;
+    }
+
+    .logo-block .adresse {
+        margin-top: 6px;
+        font-size: 11px;
+        color: #666;
+        line-height: 1.5;
+    }
+
+    .doc-meta {
+        text-align: right;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0;
+    }
+
+    .doc-meta img {
+        max-height: 56px;
+        max-width: 180px;
+        display: block;
+        margin-left: auto;
+        margin-bottom: 16px;
+    }
+
+    .doc-meta .doc-titel {
+        font-size: 22px;
+        font-weight: 300;
+        color: #1a1a2e;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-bottom: 6px;
+    }
+
+    .doc-meta table {
+        margin-left: auto;
+        font-size: 11px;
+        border: none;
+    }
+
+    .doc-meta table td {
+        padding: 0px 0 0px 12px;
+        border: none;
+        background: none;
+    }
+
+    .doc-meta table td:first-child {
+        color: #aaa;
+        font-size: 10px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        text-align: left;
+    }
+
+    .doc-meta table td:last-child {
+        text-align: right;
+        color: #333;
+        font-weight: 500;
+    }
+
+
+    /* ── EMPFÄNGER ── */
+    .empfaenger {
+        margin: 24px 0 20px;
+    }
+
+    .empfaenger .label {
+        font-size: 9px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #aaa;
+        margin-bottom: 4px;
+    }
+
+    .empfaenger .name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1a1a2e;
+    }
+
+    .empfaenger .details {
+        font-size: 12px;
+        color: #666;
+        line-height: 1.6;
+        margin-top: 2px;
+    }
+
+    /* ── BETREFF ── */
+    .betreff {
+        margin-bottom: 16px;
+        font-size: 13px;
+        color: #333;
+    }
+
+    /* ── EINLEITUNGSTEXT ── */
+    .einleitung {
+        margin-bottom: 20px;
+        font-size: 12px;
+        color: #555;
+        line-height: 1.7;
+    }
+
+    /* ── POSITIONSTABELLE ── */
+    table.positionen {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 11px;
+    }
+
+    table.positionen thead tr {
+        background: #1a1a2e;
+        color: #fff;
+    }
+
+    table.positionen thead th {
+        padding: 5px 10px;
+        font-weight: 600;
+        font-size: 11px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        border: none;
+        text-align: left;
+        line-height: 1.3;
+    }
+
+    table.positionen thead th:not(:first-child) {
+        text-align: right;
+    }
+
+    table.positionen tbody tr {
+        border-bottom: 1px solid #f0ece4;
+        page-break-inside: avoid;
+    }
+
+    table.positionen tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    table.positionen tbody td {
+        padding: 10px 10px;
+        color: #444;
+        vertical-align: top;
+        border: none;
+    }
+
+    table.positionen tbody td:not(:first-child) {
+        text-align: right;
+        white-space: nowrap;
+    }
+
+    .pos-desc {
+        color: #1a1a2e;
+        font-weight: 600;
+        display: block;
+    }
+
+    .pos-sub {
+        color: #666;
+        font-size: 10px;
+        margin-top: 2px;
+    }
+
+    /* ── SUMMEN ── */
+    table.positionen tfoot {
+        page-break-inside: avoid;
+    }
+
+    table.positionen tfoot tr td {
+        padding: 6px 10px;
+        border: none;
+        background: none;
+        font-size: 11px;
+        text-align: right;
+        color: #666;
+        white-space: nowrap;
+    }
+
+    table.positionen tfoot tr td:first-child {
+        text-align: left;
+    }
+
+    table.positionen tfoot tr.summen-netto {
+        border-top: 2px solid #1a1a2e;
+    }
+
+    table.positionen tfoot tr.summen-netto td {
+        padding-top: 12px;
+    }
+
+    table.positionen tfoot tr.summen-mwst td {
+        color: #888;
+        font-size: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #bbb;
+    }
+
+    table.positionen tfoot tr.summen-brutto td {
+        font-size: 15px;
+        color: #1a1a2e;
+        font-weight: 700;
+        padding-top: 8px;
+    }
+
+    /* ── SCHLUSSTEXT ── */
+    .schluss {
+        margin-top: 28px;
+        font-size: 12px;
+        color: #555;
+        line-height: 1.7;
+    }
+
+    /* ── ZAHLUNGSBEDINGUNGEN ── */
+    .zahlungsbedingungen {
+        margin-top: 16px;
+        font-size: 11px;
+        color: #888;
+        padding: 10px 14px;
+        background: #f8f7f4;
+        border-left: 3px solid #c8a96e;
+    }
+
+    /* ── FUßZEILE ── */
+    .footer-wrapper {
+        padding-top: 8px;
+        padding-bottom: 4mm;
+        border-top: 1px solid #ddd;
+        margin-top: 16px;
+    }
+
+    .footer-inner {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+
+    .footer-spalte {
+        display: table-cell;
+        vertical-align: top;
+        padding-right: 12px;
+        font-size: 9px;
+        color: #888;
+        line-height: 1.2;
+        text-align: left;
+    }
+
+    .footer-spalte strong {
+        color: #666;
+        font-weight: 600;
+        display: block;
+        margin-bottom: 1px;
+    }
+
+</style>
+</head>
+<body>
+
+<table class="seite">
+  <thead>
+    <tr><td>
+      <!-- KOPFZEILE -->
+      <div class="header">
+        <div class="logo-block">
+          <div class="firma">{{ einstellungen.firma_name }}</div>
+          <div class="adresse">
+            {{ einstellungen.strasse }}<br>
+            {{ einstellungen.plz }} {{ einstellungen.ort }}<br>
+            {% if einstellungen.email %}{{ einstellungen.email }}{% endif %}
+          </div>
+        </div>
+        <div class="doc-meta">
+          {% if einstellungen.logo %}
+          <img src="{{ einstellungen.logo.url }}">
+          {% endif %}
+          <div class="doc-titel">Rechnung</div>
+          <table>
+            <tr><td>Nummer</td><td>{{ rechnung.nummer }}</td></tr>
+            <tr><td>Datum</td><td>{{ rechnung.datum|datum_de }}</td></tr>
+            {% if rechnung.faellig_am %}
+            <tr><td>Fällig am</td><td>{{ rechnung.faellig_am|datum_de }}</td></tr>
+            {% endif %}
+            {% if einstellungen.firma_zusatz2 %}
+            <tr><td>BAFA-Nummer</td><td><strong>{{ einstellungen.firma_zusatz2 }}</strong></td></tr>
+            {% endif %}
+            <tr><td>Seite</td><td></td></tr>
+          </table>
+        </div>
+      </div>
+    </td></tr>
+  </thead>
+
+  <tfoot>
+    <tr><td>
+      <!-- FUßZEILE – nur ohne Hintergrund-PDF -->
+      {% if not einstellungen.hintergrund_pdf %}
+      <div class="footer-wrapper">
+        <div class="footer-inner">
+          <div class="footer-spalte">
+            <strong>{{ einstellungen.firma_name }}</strong>
+            {% if einstellungen.firma_zusatz %}{{ einstellungen.firma_zusatz }}<br>{% endif %}
+            {{ einstellungen.strasse }}<br>
+            {{ einstellungen.plz }} {{ einstellungen.ort }}<br>
+            {% if einstellungen.email %}{{ einstellungen.email }}<br>{% endif %}
+            {% if einstellungen.telefon %}Tel. {{ einstellungen.telefon }}{% endif %}
+          </div>
+          {% if einstellungen.bank_name %}
+          <div class="footer-spalte">
+            <strong>Bankverbindung</strong>
+            {{ einstellungen.bank_name }}<br>
+            IBAN: {{ einstellungen.iban }}<br>
+            {% if einstellungen.bic %}BIC: {{ einstellungen.bic }}{% endif %}
+          </div>
+          {% endif %}
+          <div class="footer-spalte">
+            <strong>Steuer</strong>
+            {% if einstellungen.ust_id %}USt-IdNr.: {{ einstellungen.ust_id }}<br>{% endif %}
+            {% if einstellungen.steuernummer %}Steuernr.: {{ einstellungen.steuernummer }}{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </td></tr>
+  </tfoot>
+
+  <tbody>
+    <tr><td>
+      <!-- EMPFÄNGER -->
+      <div class="empfaenger">
+        <div class="label">Rechnung an</div>
+        <div class="name">{{ rechnung.kunde.firma|default:rechnung.kunde.ansprechpartner }}</div>
+        <div class="details">
+          {% if rechnung.kunde.firma and rechnung.kunde.ansprechpartner %}
+          z. Hd. {{ rechnung.kunde.ansprechpartner }}<br>
+          {% endif %}
+          {{ rechnung.kunde.strasse }}<br>
+          {{ rechnung.kunde.plz }} {{ rechnung.kunde.ort }}
+        </div>
+      </div>
+
+      <!-- BETREFF -->
+      {% if rechnung.betreff %}
+      <div class="betreff"><strong>Betreff:</strong> {{ rechnung.betreff }}</div>
+      {% endif %}
+
+      <!-- EINLEITUNGSTEXT -->
+      {% if rechnung.einleitungstext %}
+      <div class="einleitung">{{ rechnung.einleitungstext|platzhalter:rechnung|safe }}</div>
+      {% endif %}
+
+      <!-- POSITIONEN -->
+      <table class="positionen">
+        <thead>
+          <tr>
+            <th>Pos. &amp; Beschreibung</th>
+            <th>Menge</th>
+            <th>Einheit</th>
+            <th>Einzelpreis netto</th>
+            <th>Gesamtpreis netto</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for position in rechnung.positionen.all %}
+          <tr>
+            <td>
+              <span class="pos-desc">{{ position.bezeichnung }}</span>
+              {% if position.beschreibung %}
+              <span class="pos-sub">{{ position.beschreibung }}</span>
+              {% endif %}
+            </td>
+            <td>{{ position.menge|menge }}</td>
+            <td>{{ position.einheit }}</td>
+            <td>{{ position.einzelpreis_netto|euro }} €</td>
+            <td>{{ position.gesamtpreis_netto|euro }} €</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr class="summen-netto">
+            <td colspan="3"></td>
+            <td>Nettobetrag</td>
+            <td>{{ rechnung.netto|euro }} €</td>
+          </tr>
+          <tr class="summen-mwst">
+            <td colspan="3"></td>
+            <td>zzgl. MwSt.</td>
+            <td>{{ rechnung.mwst_gesamt|euro }} €</td>
+          </tr>
+          <tr class="summen-brutto">
+            <td colspan="3"></td>
+            <td>Gesamtbetrag</td>
+            <td>{{ rechnung.brutto|euro }} €</td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <!-- SCHLUSSTEXT -->
+      {% if rechnung.schlusstext %}
+      <div class="schluss">{{ rechnung.schlusstext|platzhalter:rechnung|safe }}</div>
+      {% endif %}
+
+      <!-- ZAHLUNGSBEDINGUNGEN -->
+      {% if rechnung.zahlungsbedingungen %}
+      <div class="zahlungsbedingungen">{{ rechnung.zahlungsbedingungen }}</div>
+      {% endif %}
+
+    </td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

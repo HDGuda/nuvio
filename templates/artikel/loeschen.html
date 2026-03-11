@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block titel %}Artikel löschen – Nuvio{% endblock %}
+{% block seitentitel %}Artikel löschen{% endblock %}
+
+{% block inhalt %}
+
+<div class="card" style="max-width: 500px;">
+    <div class="card-header">
+        <div class="card-titel">Artikel löschen</div>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom: 20px; line-height: 1.7;">
+            Möchten Sie den Artikel <strong>{{ artikel }}</strong> wirklich löschen?<br>
+            <span style="color: #888; font-size: 13px;">Der Artikel wird deaktiviert und erscheint nicht mehr in der Liste.</span>
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-danger">Ja, löschen</button>
+                <a href="{% url 'artikel_liste' %}" class="btn btn-secondary">Abbrechen</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block titel %}Kunden – Nuvio{% endblock %}
+{% block seitentitel %}Kunden{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'kunde_neu' %}" class="btn btn-primary">+ Neuer Kunde</a>
+{% endblock %}
+
+{% block inhalt %}
+
+<!-- SUCHFELD -->
+<div class="card">
+    <div class="card-body" style="padding: 16px 24px;">
+        <form method="get">
+            <div style="display: flex; gap: 10px;">
+                <input type="text" name="suche" value="{{ suche }}" placeholder="Nach Name/Firma oder Ansprechpartner suchen..." style="flex: 1; padding: 9px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                <button type="submit" class="btn btn-primary">Suchen</button>
+                {% if suche %}
+                <a href="{% url 'kunden_liste' %}" class="btn btn-secondary">Zurücksetzen</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KUNDENLISTE -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">
+            {% if suche %}
+                Suchergebnisse für „{{ suche }}" ({{ kunden|length }})
+            {% else %}
+                Alle Kunden ({{ kunden|length }})
+            {% endif %}
+        </div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if kunden %}
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>Name/Firma</th>
+                    <th>Ansprechpartner</th>
+                    <th>E-Mail</th>
+                    <th>Telefon</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for kunde in kunden %}
+                <tr>
+                    <td><a href="{% url 'kunde_detail' kunde.pk %}">{{ kunde.firma|default:"–" }}</a></td>
+                    <td>{{ kunde.ansprechpartner|default:"–" }}</td>
+                    <td>{{ kunde.email|default:"–" }}</td>
+                    <td>{{ kunde.telefon|default:"–" }}</td>
+                    <td>
+                        <div style="display: flex; gap: 6px;">
+                            <a href="{% url 'kunde_bearbeiten' kunde.pk %}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Bearbeiten</a>
+                            <a href="{% url 'kunde_loeschen' kunde.pk %}" class="btn btn-danger" style="font-size: 12px; padding: 4px 10px;">Löschen</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 40px; text-align: center; color: #999;">
+            {% if suche %}
+                Keine Kunden gefunden für „{{ suche }}".
+            {% else %}
+                Noch keine Kunden vorhanden. <a href="{% url 'kunde_neu' %}">Jetzt anlegen</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

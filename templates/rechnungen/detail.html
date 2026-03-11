@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ rechnung.nummer }} – Nuvio{% endblock %}
+{% block seitentitel %}{{ rechnung.nummer }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'rechnung_bearbeiten' rechnung.pk %}" class="btn btn-secondary">Bearbeiten</a>
+    <a href="{% url 'rechnung_pdf' rechnung.pk %}" class="btn btn-gold" target="_blank">PDF erzeugen</a>
+    <a href="{% url 'rechnung_email' rechnung.pk %}" class="btn btn-primary">✉ Per E-Mail senden</a>
+    <a href="{% url 'rechnung_in_gutschrift' rechnung.pk %}" class="btn btn-success">+ Gutschrift erstellen</a>
+{% endblock %}
+
+{% block inhalt %}
+{% load nuvio_filters %}
+
+<!-- KOPFDATEN -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-titel">Rechnungsdaten</div>
+        </div>
+        <div class="card-body">
+            <table style="width: 100%; font-size: 14px;">
+                <tr><td style="color: #999; padding: 6px 0; width: 140px;">Nummer</td><td><strong>{{ rechnung.nummer }}</strong></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Kunde</td><td><a href="{% url 'kunde_detail' rechnung.kunde.pk %}">{{ rechnung.kunde }}</a></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Datum</td><td>{{ rechnung.datum|date:"d.m.Y" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Fällig am</td><td>{{ rechnung.faellig_am|date:"d.m.Y"|default:"–" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ rechnung.status }}"></span>{{ rechnung.get_status_display }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Betreff</td><td>{{ rechnung.betreff|default:"–" }}</td></tr>
+                {% if rechnung.gesendet_am %}
+                <tr><td style="color: #999; padding: 6px 0;">Gesendet am</td><td>{{ rechnung.gesendet_am|date:"d.m.Y" }}</td></tr>
+                {% endif %}
+                {% if rechnung.angebot %}
+                <tr><td style="color: #999; padding: 6px 0;">Aus Angebot</td><td><a href="{% url 'angebot_detail' rechnung.angebot.pk %}">{{ rechnung.angebot.nummer }}</a></td></tr>
+                {% endif %}
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-titel">Summen</div>
+        </div>
+        <div class="card-body">
+            <table style="width: 100%; font-size: 14px;">
+                <tr><td style="color: #999; padding: 6px 0;">Nettobetrag</td><td class="text-rechts">{{ rechnung.netto|euro }} €</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">MwSt.</td><td class="text-rechts">{{ rechnung.mwst_gesamt|euro }} €</td></tr>
+                <tr style="border-top: 2px solid #1a1a2e;">
+                    <td style="padding: 10px 0;"><strong>Gesamtbetrag</strong></td>
+                    <td class="text-rechts"><strong style="font-size: 18px;">{{ rechnung.brutto|euro }} €</strong></td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<!-- POSITIONEN -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Positionen</div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Bezeichnung</th>
+                    <th>Menge</th>
+                    <th>Einheit</th>
+                    <th class="text-rechts">Einzelpreis</th>
+                    <th class="text-rechts">MwSt.</th>
+                    <th class="text-rechts">Gesamt</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for position in rechnung.positionen.all %}
+                <tr>
+                    <td class="text-grau">{{ forloop.counter }}</td>
+                    <td>
+                        <strong>{{ position.bezeichnung }}</strong>
+                        {% if position.beschreibung %}
+                        <div class="text-grau text-klein">{{ position.beschreibung }}</div>
+                        {% endif %}
+                    </td>
+                    <td>{{ position.menge|euro }}</td>
+                    <td>{{ position.einheit }}</td>
+                    <td class="text-rechts">{{ position.einzelpreis|euro }} €</td>
+                    <td class="text-rechts">{{ position.steuersatz|prozent }} %</td>
+                    <td class="text-rechts"><strong>{{ position.gesamtpreis_netto|euro }} €</strong></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- TEXTE -->
+{% if rechnung.einleitungstext or rechnung.schlusstext or rechnung.zahlungsbedingungen %}
+<div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px;">
+    {% if rechnung.einleitungstext %}
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Einleitungstext</div></div>
+        <div class="card-body"><p style="line-height: 1.7;">{{ rechnung.einleitungstext|safe }}</p></div>
+    </div>
+    {% endif %}
+    {% if rechnung.schlusstext %}
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Schlusstext</div></div>
+        <div class="card-body"><p style="line-height: 1.7;">{{ rechnung.schlusstext|safe }}</p></div>
+    </div>
+    {% endif %}
+    {% if rechnung.zahlungsbedingungen %}
+    <div class="card">
+        <div class="card-header"><div class="card-titel">Zahlungsbedingungen</div></div>
+        <div class="card-body"><p style="line-height: 1.7;">{{ rechnung.zahlungsbedingungen|safe }}</p></div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- GUTSCHRIFTEN -->
+{% if rechnung.gutschriften.exists %}
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Gutschriften zu dieser Rechnung</div>
+        <a href="{% url 'rechnung_in_gutschrift' rechnung.pk %}" class="btn btn-success" style="font-size: 12px; padding: 6px 12px;">+ Neue Gutschrift</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>Nummer</th>
+                    <th>Datum</th>
+                    <th>Betreff</th>
+                    <th class="text-rechts">Betrag</th>
+                    <th>Status</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for gs in rechnung.gutschriften.all %}
+                <tr>
+                    <td><a href="{% url 'gutschrift_detail' gs.pk %}">{{ gs.nummer }}</a></td>
+                    <td>{{ gs.datum|date:"d.m.Y" }}</td>
+                    <td>{{ gs.betreff|default:"–" }}</td>
+                    <td class="text-rechts">{{ gs.brutto|euro }} €</td>
+                    <td><span class="badge badge-{{ gs.status }}">{{ gs.get_status_display }}</span></td>
+                    <td>
+                        <div style="display: flex; gap: 6px;">
+                            <a href="{% url 'gutschrift_pdf' gs.pk %}" class="btn btn-gold" style="font-size: 12px; padding: 4px 10px;" target="_blank">PDF</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- ZAHLUNGSEINGANG -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Zahlungseingang</div>
+    </div>
+    <div class="card-body">
+
+        {% if rechnung.bezahlt_am %}
+        <div style="display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: #f0faf3; border-radius: 8px; border-left: 3px solid #28a745; margin-bottom: 20px;">
+            <span style="font-size: 22px;">✅</span>
+            <div>
+                <div style="font-size: 14px; font-weight: 600; color: #1a1a2e;">
+                    {{ rechnung.bezahlt_betrag|euro }} € eingegangen am {{ rechnung.bezahlt_am|date:"d.m.Y" }}
+                </div>
+                <div style="font-size: 12px; color: #999;">
+                    {% if rechnung.status == 'bezahlt' %}Vollständig bezahlt{% else %}Teilzahlung – offen: {{ rechnung.offener_betrag|euro }} €{% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <form method="post" action="{% url 'rechnung_zahlungseingang' rechnung.pk %}">
+            {% csrf_token %}
+            <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: end;">
+                <div>
+                    <label style="font-size: 12px; color: #999; display: block; margin-bottom: 4px;">Zahlungsdatum</label>
+                    {{ zahlungsformular.bezahlt_am }}
+                </div>
+                <div>
+                    <label style="font-size: 12px; color: #999; display: block; margin-bottom: 4px;">Höhe des Zahlungseingangs (€)</label>
+                    {{ zahlungsformular.bezahlt_betrag }}
+                </div>
+                <div>
+                    <button type="submit" class="btn btn-primary">Speichern</button>
+                </div>
+            </div>
+            <div style="font-size: 12px; color: #aaa; margin-top: 8px;">
+                Gesamtbetrag: <strong>{{ rechnung.brutto|euro }} €</strong> –
+                Bei Teilzahlung wird Status auf „Teilbezahlt" gesetzt, bei vollem Betrag auf „Bezahlt".
+            </div>
+        </form>
+
+    </div>
+</div>
+
+<!-- ZURÜCK -->
+<a href="{% url 'rechnungen_liste' %}" class="btn btn-secondary mt-16">← Zurück zur Liste</a>
+
+{% endblock %}

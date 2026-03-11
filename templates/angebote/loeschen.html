@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block titel %}Angebot löschen – Nuvio{% endblock %}
+{% block seitentitel %}Angebot löschen{% endblock %}
+
+{% block inhalt %}
+
+<div class="card" style="max-width: 500px;">
+    <div class="card-header">
+        <div class="card-titel">Angebot löschen</div>
+    </div>
+    <div class="card-body">
+        <p style="margin-bottom: 20px; line-height: 1.7;">
+            Möchten Sie das Angebot <strong>{{ angebot.nummer }}</strong> wirklich löschen?<br>
+            <span style="color: #dc3545; font-size: 13px;">Diese Aktion kann nicht rückgängig gemacht werden.</span>
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-danger">Ja, löschen</button>
+                <a href="{% url 'angebote_liste' %}" class="btn btn-secondary">Abbrechen</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}

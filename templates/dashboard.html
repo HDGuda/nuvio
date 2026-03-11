@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block titel %}Dashboard – Nuvio{% endblock %}
+{% block seitentitel %}Dashboard{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'angebot_neu' %}" class="btn btn-primary">+ Neues Angebot</a>
+    <a href="{% url 'rechnung_neu' %}" class="btn btn-secondary">+ Neue Rechnung</a>
+{% endblock %}
+
+{% block inhalt %}
+
+<!-- KENNZAHLEN -->
+<div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 32px;">
+
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-body" style="text-align: center; padding: 28px;">
+            <div style="font-size: 36px; font-weight: 700; color: #1a1a2e;">{{ angebote_offen }}</div>
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-top: 6px;">Offene Angebote</div>
+            <a href="{% url 'angebote_liste' %}" class="btn btn-secondary" style="margin-top: 16px; font-size: 12px;">Anzeigen</a>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-body" style="text-align: center; padding: 28px;">
+            <div style="font-size: 36px; font-weight: 700; color: #c8a96e;">{{ rechnungen_offen }}</div>
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-top: 6px;">Offene Rechnungen</div>
+            <a href="{% url 'rechnungen_liste' %}" class="btn btn-secondary" style="margin-top: 16px; font-size: 12px;">Anzeigen</a>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom: 0;">
+        <div class="card-body" style="text-align: center; padding: 28px;">
+            <div style="font-size: 36px; font-weight: 700; color: #28a745;">{{ rechnungen_bezahlt }}</div>
+            <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #999; margin-top: 6px;">Bezahlte Rechnungen</div>
+            <a href="{% url 'rechnungen_liste' %}?status=bezahlt" class="btn btn-secondary" style="margin-top: 16px; font-size: 12px;">Anzeigen</a>
+        </div>
+    </div>
+
+</div>
+
+<!-- LETZTE ANGEBOTE & RECHNUNGEN -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+
+    <!-- Letzte Angebote -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-titel">Letzte Angebote</div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <a href="{% url 'angebote_liste' %}" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">Alle anzeigen</a>
+                <a href="{% url 'angebot_neu' %}" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;">+ Neu</a>
+            </div>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            {% if letzte_angebote %}
+            <table class="tabelle">
+                <thead>
+                    <tr>
+                        <th>Nummer</th>
+                        <th>Kunde</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for angebot in letzte_angebote %}
+                    <tr>
+                        <td><a href="{% url 'angebot_detail' angebot.pk %}">{{ angebot.nummer }}</a></td>
+                        <td>{{ angebot.kunde }}</td>
+                        <td><span class="badge badge-{{ angebot.status }}">{{ angebot.get_status_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="padding: 24px; text-align: center; color: #999;">Noch keine Angebote vorhanden.</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Letzte Rechnungen -->
+    <div class="card">
+        <div class="card-header">
+            <div class="card-titel">Letzte Rechnungen</div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <a href="{% url 'rechnungen_liste' %}" class="btn btn-secondary" style="font-size: 12px; padding: 6px 12px;">Alle anzeigen</a>
+                <a href="{% url 'rechnung_neu' %}" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;">+ Neu</a>
+            </div>
+        </div>
+        <div class="card-body" style="padding: 0;">
+            {% if letzte_rechnungen %}
+            <table class="tabelle">
+                <thead>
+                    <tr>
+                        <th>Nummer</th>
+                        <th>Kunde</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rechnung in letzte_rechnungen %}
+                    <tr>
+                        <td><a href="{% url 'rechnung_detail' rechnung.pk %}">{{ rechnung.nummer }}</a></td>
+                        <td>{{ rechnung.kunde }}</td>
+                        <td><span class="badge badge-{{ rechnung.status }}">{{ rechnung.get_status_display }}</span></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div style="padding: 24px; text-align: center; color: #999;">Noch keine Rechnungen vorhanden.</div>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block titel %}Gutschriften – Nuvio{% endblock %}
+{% block seitentitel %}Gutschriften{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'gutschrift_neu' %}" class="btn btn-primary">+ Neue Gutschrift</a>
+{% endblock %}
+
+{% block inhalt %}
+
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Alle Gutschriften ({{ page_obj.paginator.count }})</div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if gutschriften %}
+        {% load nuvio_filters %}
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>Nummer</th>
+                    <th>Kunde</th>
+                    <th>Datum</th>
+                    <th>Zu Rechnung</th>
+                    <th>Betreff</th>
+                    <th class="text-rechts">Betrag</th>
+                    <th>Status</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for gs in gutschriften %}
+                <tr>
+                    <td><a href="{% url 'gutschrift_detail' gs.pk %}">{{ gs.nummer }}</a></td>
+                    <td>{{ gs.kunde }}</td>
+                    <td>{{ gs.datum|date:"d.m.Y" }}</td>
+                    <td>
+                        {% if gs.rechnung %}
+                        <a href="{% url 'rechnung_detail' gs.rechnung.pk %}">{{ gs.rechnung.nummer }}</a>
+                        {% else %}–{% endif %}
+                    </td>
+                    <td class="text-grau">{{ gs.betreff|default:"–" }}</td>
+                    <td class="text-rechts">{{ gs.brutto|euro }} €</td>
+                    <td><span class="badge badge-{{ gs.status }}">{{ gs.get_status_display }}</span></td>
+                    <td>
+                        <div style="display: flex; gap: 6px;">
+                            <a href="{% url 'gutschrift_detail' gs.pk %}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Detail</a>
+                            <a href="{% url 'gutschrift_pdf' gs.pk %}" class="btn btn-gold" style="font-size: 12px; padding: 4px 10px;" target="_blank">PDF</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% if page_obj.has_other_pages %}
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; border-top: 1px solid #eee;">
+            <div style="font-size: 13px; color: #999;">
+                Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+                &nbsp;·&nbsp; {{ page_obj.paginator.count }} Einträge gesamt
+            </div>
+            <div style="display: flex; gap: 4px;">
+                {% if page_obj.has_previous %}
+                <a href="?page=1" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">«</a>
+                <a href="?page={{ page_obj.previous_page_number }}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">‹</a>
+                {% endif %}
+                {% for num in page_obj.paginator.page_range %}
+                    {% if page_obj.number == num %}
+                    <span class="btn btn-primary" style="font-size: 12px; padding: 5px 10px;">{{ num }}</span>
+                    {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+                    <a href="?page={{ num }}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+                {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">›</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}" class="btn btn-secondary" style="font-size: 12px; padding: 5px 10px;">»</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+        {% else %}
+        <div style="padding: 40px; text-align: center; color: #999;">
+            Noch keine Gutschriften vorhanden. <a href="{% url 'gutschrift_neu' %}">Jetzt anlegen</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block titel %}E-Mail senden – {{ rechnung.nummer }} – Nuvio{% endblock %}
+{% block seitentitel %}E-Mail senden: {{ rechnung.nummer }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'rechnung_detail' rechnung.pk %}" class="btn btn-secondary">← Zurück zur Rechnung</a>
+{% endblock %}
+
+{% block inhalt %}
+
+<form method="post" action="{% url 'rechnung_email_senden' rechnung.pk %}" enctype="multipart/form-data">
+{% csrf_token %}
+
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+
+    <!-- LINKE SPALTE: E-Mail-Felder -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+
+        <div class="card">
+            <div class="card-header"><div class="card-titel">E-Mail</div></div>
+            <div class="card-body" style="display: flex; flex-direction: column; gap: 16px;">
+
+                <div>
+                    <label style="font-size: 12px; color: #999; display: block; margin-bottom: 4px;">Empfänger</label>
+                    {{ form.empfaenger }}
+                    {% if form.empfaenger.errors %}<div style="color: #c0392b; font-size: 12px; margin-top: 4px;">{{ form.empfaenger.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div>
+                    <label style="font-size: 12px; color: #999; display: block; margin-bottom: 4px;">Betreff</label>
+                    {{ form.betreff }}
+                    {% if form.betreff.errors %}<div style="color: #c0392b; font-size: 12px; margin-top: 4px;">{{ form.betreff.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div>
+                    <label style="font-size: 12px; color: #999; display: block; margin-bottom: 4px;">E-Mail-Text</label>
+                    {{ form.text }}
+                    {% if form.text.errors %}<div style="color: #c0392b; font-size: 12px; margin-top: 4px;">{{ form.text.errors.0 }}</div>{% endif %}
+                </div>
+
+                <!-- AKTIONSBUTTONS -->
+                <div style="display: flex; gap: 12px; align-items: center; padding-top: 4px;">
+                    <button type="submit" class="btn btn-primary" style="font-size: 15px; padding: 10px 28px;">
+                        ✉ An Outlook übergeben
+                    </button>
+                    <a href="{% url 'rechnung_detail' rechnung.pk %}" class="btn btn-secondary">Abbrechen</a>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- RECHTE SPALTE: Anhänge + Zusammenfassung -->
+    <div style="display: flex; flex-direction: column; gap: 24px;">
+
+        <div class="card">
+            <div class="card-header"><div class="card-titel">Anhänge</div></div>
+            <div class="card-body" style="display: flex; flex-direction: column; gap: 16px;">
+
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #f8f7f4; border-radius: 6px; border-left: 3px solid #1a1a2e;">
+                    <span style="font-size: 18px;">📄</span>
+                    <div>
+                        <div style="font-size: 13px; font-weight: 600; color: #1a1a2e;">Rechnung_{{ rechnung.nummer }}.pdf</div>
+                        <div style="font-size: 11px; color: #999;">Wird automatisch generiert</div>
+                    </div>
+                    <span style="margin-left: auto; font-size: 11px; color: #aaa;">immer dabei</span>
+                </div>
+
+                {% if einstellungen.email_rechnung_anhang1 %}
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #f8f7f4; border-radius: 6px;">
+                    <span style="font-size: 18px;">📎</span>
+                    <div style="flex: 1;">
+                        <div style="font-size: 13px; font-weight: 600; color: #333;">{{ einstellungen.email_rechnung_anhang1.name|slice:"16:" }}</div>
+                        <div style="font-size: 11px; color: #999;">Standard-Anhang 1</div>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                        {{ form.anhang1_aktiv }}<span>mitsenden</span>
+                    </label>
+                </div>
+                {% endif %}
+
+                {% if einstellungen.email_rechnung_anhang2 %}
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px 14px; background: #f8f7f4; border-radius: 6px;">
+                    <span style="font-size: 18px;">📎</span>
+                    <div style="flex: 1;">
+                        <div style="font-size: 13px; font-weight: 600; color: #333;">{{ einstellungen.email_rechnung_anhang2.name|slice:"16:" }}</div>
+                        <div style="font-size: 11px; color: #999;">Standard-Anhang 2</div>
+                    </div>
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer;">
+                        {{ form.anhang2_aktiv }}<span>mitsenden</span>
+                    </label>
+                </div>
+                {% endif %}
+
+                <div style="padding: 10px 14px; background: #f8f7f4; border-radius: 6px; border: 1px dashed #ccc;">
+                    <label style="font-size: 12px; color: #999; display: block; margin-bottom: 6px;">Zusätzlicher Anhang (optional)</label>
+                    {{ form.extra_anhang }}
+                </div>
+
+                {% if not einstellungen.email_rechnung_anhang1 and not einstellungen.email_rechnung_anhang2 %}
+                <div style="font-size: 12px; color: #aaa; padding: 4px 0;">
+                    Keine Standard-Anhänge hinterlegt.
+                    <a href="{% url 'einstellungen' %}" style="color: #c8a96e;">In Einstellungen ergänzen →</a>
+                </div>
+                {% endif %}
+
+            </div>
+        </div>
+
+        <!-- Rechnungszusammenfassung -->
+        <div class="card">
+            <div class="card-header"><div class="card-titel">Rechnung</div></div>
+            <div class="card-body">
+                {% load nuvio_filters %}
+                <table style="width: 100%; font-size: 13px;">
+                    <tr><td style="color: #999; padding: 4px 0; width: 120px;">Nummer</td><td><strong>{{ rechnung.nummer }}</strong></td></tr>
+                    <tr><td style="color: #999; padding: 4px 0;">Kunde</td><td>{{ rechnung.kunde }}</td></tr>
+                    <tr><td style="color: #999; padding: 4px 0;">Datum</td><td>{{ rechnung.datum|date:"d.m.Y" }}</td></tr>
+                    <tr><td style="color: #999; padding: 4px 0;">Fällig am</td><td>{{ rechnung.faellig_am|date:"d.m.Y"|default:"–" }}</td></tr>
+                    <tr><td style="color: #999; padding: 4px 0;">Gesamtbetrag</td><td><strong>{{ rechnung.brutto|euro }} €</strong></td></tr>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+</form>
+
+{% endblock %}

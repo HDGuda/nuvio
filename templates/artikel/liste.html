@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block titel %}Artikel – Nuvio{% endblock %}
+{% block seitentitel %}Artikelstamm{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'artikel_neu' %}" class="btn btn-primary">+ Neuer Artikel</a>
+{% endblock %}
+
+{% block inhalt %}
+
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Alle Artikel ({{ artikel|length }})</div>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if artikel %}
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>Bezeichnung</th>
+                    <th>Beschreibung</th>
+                    <th>Einheit</th>
+                    <th class="text-rechts">Einzelpreis</th>
+                    <th class="text-rechts">Steuersatz</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for a in artikel %}
+                <tr>
+                    <td><strong>{{ a.bezeichnung }}</strong></td>
+                    <td class="text-grau">{{ a.beschreibung|default:"–" }}</td>
+                    <td>{{ a.einheit }}</td>
+                    <td class="text-rechts">{{ a.einzelpreis }} €</td>
+                    <td class="text-rechts">{{ a.steuersatz }} %</td>
+                    <td>
+                        <div style="display: flex; gap: 6px;">
+                            <a href="{% url 'artikel_bearbeiten' a.pk %}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Bearbeiten</a>
+                            <a href="{% url 'artikel_loeschen' a.pk %}" class="btn btn-danger" style="font-size: 12px; padding: 4px 10px;">Löschen</a>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 40px; text-align: center; color: #999;">
+            Noch keine Artikel vorhanden. <a href="{% url 'artikel_neu' %}">Jetzt anlegen</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}

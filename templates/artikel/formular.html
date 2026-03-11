@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ titel }} – Nuvio{% endblock %}
+{% block seitentitel %}{{ titel }}{% endblock %}
+
+{% block inhalt %}
+
+<div class="card" style="max-width: 640px;">
+    <div class="card-header">
+        <div class="card-titel">{{ titel }}</div>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+
+            <div class="form-gruppe">
+                <label>Bezeichnung</label>
+                {{ form.bezeichnung }}
+            </div>
+
+            <div class="form-gruppe">
+                <label>Beschreibung</label>
+                <textarea name="beschreibung" rows="4"
+                          style="width:100%; padding:9px 12px; border:1px solid #ddd; border-radius:4px; font-size:14px; font-family:inherit; resize:vertical; box-sizing:border-box;">{{ form.beschreibung.value|default:'' }}</textarea>
+            </div>
+
+            <div class="form-reihe">
+                <div class="form-gruppe">
+                    <label>Einheit</label>
+                    {{ form.einheit }}
+                </div>
+                <div class="form-gruppe">
+                    <label>Einzelpreis (€)</label>
+                    <input type="text" id="id_einzelpreis" name="einzelpreis"
+                           value="{{ form.einzelpreis.value|default:'' }}"
+                           placeholder="0,00"
+                           style="width:100%; padding:9px 12px; border:1px solid #ddd; border-radius:4px; font-size:14px; box-sizing:border-box;">
+                </div>
+                <div class="form-gruppe">
+                    <label>Steuersatz (%)</label>
+                    <input type="text" id="id_steuersatz" name="steuersatz"
+                           value="{{ form.steuersatz.value|default:'19' }}"
+                           placeholder="19"
+                           style="width:100%; padding:9px 12px; border:1px solid #ddd; border-radius:4px; font-size:14px; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div class="form-gruppe">
+                <label style="display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0;">
+                    {{ form.aktiv }} Artikel ist aktiv
+                </label>
+            </div>
+
+            <hr class="trennlinie">
+
+            <div style="display: flex; gap: 10px;">
+                <button type="submit" class="btn btn-primary">Speichern</button>
+                <a href="{% url 'artikel_liste' %}" class="btn btn-secondary">Abbrechen</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+(function() {
+    // ── EINZELPREIS: Komma als Dezimaltrenner ─────────────────────
+    var preis = document.getElementById('id_einzelpreis');
+    if (preis && preis.value) {
+        preis.value = preis.value.replace('.', ',');
+    }
+    if (preis) {
+        preis.addEventListener('input', function() {
+            var v = this.value.replace(/[^0-9,]/g, '');
+            var parts = v.split(',');
+            if (parts.length > 2) v = parts[0] + ',' + parts.slice(1).join('');
+            this.value = v;
+        });
+    }
+
+    // ── STEUERSATZ: nur Zahlen erlauben ──────────────────────────
+    var steuer = document.getElementById('id_steuersatz');
+    if (steuer) {
+        steuer.addEventListener('input', function() {
+            this.value = this.value.replace(/[^0-9]/g, '');
+        });
+    }
+
+    // ── BEIM ABSENDEN: Komma → Punkt ─────────────────────────────
+    document.querySelector('form').addEventListener('submit', function() {
+        if (preis) preis.value = preis.value.replace(',', '.');
+    });
+})();
+</script>
+
+{% endblock %}

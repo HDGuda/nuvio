@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ titel }} – Nuvio{% endblock %}
+{% block seitentitel %}{{ titel }}{% endblock %}
+
+{% block inhalt %}
+
+<form method="post">
+{% csrf_token %}
+
+<!-- KOPFDATEN -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">Angebotsdaten</div></div>
+    <div class="card-body">
+
+        <div class="form-reihe">
+            <div class="form-gruppe"><label>Kunde</label>{{ form.kunde }}</div>
+            <div class="form-gruppe"><label>Betreff</label>{{ form.betreff }}</div>
+        </div>
+        <div class="form-reihe">
+            <div class="form-gruppe"><label>Datum</label>{{ form.datum }}</div>
+            <div class="form-gruppe"><label>Gültig bis</label>{{ form.gueltig_bis }}</div>
+            <div class="form-gruppe"><label>Status</label>{{ form.status }}</div>
+        </div>
+
+        <div class="form-gruppe">
+            <label>Einleitungstext</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                    <select onchange="platzhalterEinfuegen(this, 'editor-einleitung', 'id_einleitungstext')" style="font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:3px;">
+                        <option value="">Platzhalter einfügen…</option>
+                        <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
+                        <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                        <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
+                        <option value="&#123;&#123;angebot_nummer&#125;&#125;">Angebotsnummer</option>
+                        <option value="&#123;&#123;angebot_datum&#125;&#125;">Angebotsdatum</option>
+                        <option value="---seitenumbruch---">Seitenumbruch</option>
+                    </select>
+                </div>
+                <div id="editor-einleitung" class="editor-box" contenteditable="true"></div>
+                <input type="hidden" name="einleitungstext" id="id_einleitungstext" value="{{ form.einleitungstext.value|default:""|escapejs }}">
+            </div>
+        </div>
+
+        <div class="form-gruppe">
+            <label>Schlusstext</label>
+            <div class="editor-wrapper">
+                <div class="editor-toolbar">
+                    <button type="button" onclick="editorFett(this)"><strong>F</strong></button>
+                    <button type="button" onclick="editorKursiv(this)"><em>K</em></button>
+                    <select onchange="platzhalterEinfuegen(this, 'editor-schluss', 'id_schlusstext')" style="font-size:12px; padding:2px 4px; border:1px solid #ccc; border-radius:3px;">
+                        <option value="">Platzhalter einfügen…</option>
+                        <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
+                        <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                        <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
+                        <option value="&#123;&#123;angebot_nummer&#125;&#125;">Angebotsnummer</option>
+                        <option value="&#123;&#123;angebot_datum&#125;&#125;">Angebotsdatum</option>
+                        <option value="---seitenumbruch---">Seitenumbruch</option>
+                    </select>
+                </div>
+                <div id="editor-schluss" class="editor-box" contenteditable="true"></div>
+                <input type="hidden" name="schlusstext" id="id_schlusstext" value="{{ form.schlusstext.value|default:""|escapejs }}">
+            </div>
+        </div>
+
+        <div class="form-gruppe">
+            <label>Interne Notizen (erscheint nicht im PDF)</label>
+            {{ form.interne_notizen }}
+        </div>
+
+    </div>
+</div>
+
+<!-- POSITIONEN -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Positionen</div>
+        <button type="button" class="btn btn-secondary" onclick="positionHinzufuegen()" style="font-size:12px; padding:6px 12px;">+ Position hinzufügen</button>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {{ formset.management_form }}
+        <div class="tabelle-container">
+        <table class="tabelle" id="positionen-tabelle">
+            <thead>
+                <tr>
+                    <th style="width:150px;">Aus Artikelstamm</th>
+                    <th>Bezeichnung</th>
+                    <th style="width:54px;">Menge</th>
+                    <th style="width:80px;">Einheit</th>
+                    <th style="width:56px;">Einzelpreis</th>
+                    <th style="width:84px;">MwSt. %</th>
+                    <th style="width:36px;"></th>
+                </tr>
+            </thead>
+            <tbody id="positionen-body">
+                {% for position_form in formset %}
+                <tr class="position-zeile">
+                    <td style="display:none;">
+                        {{ position_form.id }}
+                        {{ position_form.reihenfolge }}
+                        {% if position_form.DELETE %}<div style="display:none;">{{ position_form.DELETE }}</div>{% endif %}
+                    </td>
+                    <td>{{ position_form.artikel }}</td>
+                    <td>{{ position_form.bezeichnung }}{{ position_form.beschreibung }}</td>
+                    <td>{{ position_form.menge }}</td>
+                    <td>{{ position_form.einheit }}</td>
+                    <td>{{ position_form.einzelpreis }}</td>
+                    <td>{{ position_form.steuersatz }}</td>
+                    <td><button type="button" class="btn btn-danger" onclick="positionLoeschen(this)" style="font-size:11px; padding:4px 8px;">✕</button></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+<!-- SPEICHERN -->
+<div style="display:flex; gap:10px;">
+    <button type="submit" class="btn btn-primary">Speichern</button>
+    <a href="{% url 'angebote_liste' %}" class="btn btn-secondary">Abbrechen</a>
+</div>
+
+</form>
+
+<style>
+    .editor-toolbar { display: flex; gap: 4px; padding: 6px 8px; background: #f5f5f5; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; }
+    .editor-toolbar button { padding: 3px 8px; border: 1px solid #ccc; background: #fff; border-radius: 3px; cursor: pointer; font-size: 13px; }
+    .editor-toolbar button:hover { background: #e8e8e8; }
+    .editor-box { min-height: 80px; padding: 10px 12px; border: 1px solid #ddd; border-radius: 0 0 4px 4px; font-size: 14px; font-family: inherit; line-height: 1.6; outline: none; background: #fff; box-sizing: border-box; width: 100%; }
+    .editor-box:focus { border-color: #1a1a2e; }
+    .tabelle-container { width: 100%; overflow-x: auto; }
+    #positionen-tabelle input, #positionen-tabelle select, #positionen-tabelle textarea {
+        width: 100% !important; min-width: 0 !important; font-size: 12px; padding: 4px 6px; box-sizing: border-box;
+    }
+    #positionen-tabelle textarea { height: 96px; resize: vertical; }
+    #positionen-tabelle td, #positionen-tabelle th { padding: 6px 4px; }
+</style>
+
+<script>
+// ── RICH TEXT EDITOR ──────────────────────────────────────────────
+function editorFett(btn) {
+    document.execCommand('bold', false, null);
+    btn.closest('.editor-wrapper').querySelector('.editor-box').focus();
+}
+function editorKursiv(btn) {
+    document.execCommand('italic', false, null);
+    btn.closest('.editor-wrapper').querySelector('.editor-box').focus();
+}
+
+function platzhalterEinfuegen(selectEl, editorId, hiddenId) {
+    var wert = selectEl.value;
+    if (!wert) return;
+    var editor = document.getElementById(editorId);
+    if (!editor) return;
+    editor.focus();
+    var saved = editor._savedRange;
+    if (saved) {
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(saved);
+    }
+    var sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+        var range = sel.getRangeAt(0);
+        range.deleteContents();
+        var textNode = document.createTextNode(wert);
+        range.insertNode(textNode);
+        range.setStartAfter(textNode);
+        range.setEndAfter(textNode);
+        sel.removeAllRanges();
+        sel.addRange(range);
+    } else {
+        editor.appendChild(document.createTextNode(wert));
+    }
+    document.getElementById(hiddenId).value = editor.innerHTML;
+    setTimeout(function() { selectEl.value = ''; }, 0);
+}
+
+function editorInit(editorId, hiddenId, initialValue) {
+    var editor = document.getElementById(editorId);
+    var hidden = document.getElementById(hiddenId);
+    if (!editor || !hidden) return;
+    if (initialValue) {
+        editor.innerHTML = initialValue;
+        hidden.value = initialValue;
+    }
+    editor.addEventListener('input', function() { hidden.value = editor.innerHTML; });
+    editor.addEventListener('blur', function() {
+        var sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            editor._savedRange = sel.getRangeAt(0).cloneRange();
+        }
+        hidden.value = editor.innerHTML;
+    });
+}
+
+// ── POSITIONEN ────────────────────────────────────────────────────
+function anzahlFormulare() {
+    return parseInt(document.getElementById('id_positionen-TOTAL_FORMS').value);
+}
+function anzahlSetzen(n) {
+    document.getElementById('id_positionen-TOTAL_FORMS').value = n;
+}
+
+function artikelDropdownHtml(index) {
+    var ersterDropdown = document.querySelector('select[name$="-artikel"]');
+    if (!ersterDropdown) return '<select name="positionen-' + index + '-artikel"><option value="">---------</option></select>';
+    return '<select name="positionen-' + index + '-artikel">' + ersterDropdown.innerHTML + '</select>';
+}
+
+function positionHinzufuegen() {
+    var body  = document.getElementById('positionen-body');
+    var index = anzahlFormulare();
+    var zeile = document.createElement('tr');
+    zeile.className = 'position-zeile';
+    zeile.innerHTML =
+        '<td style="display:none;">' +
+            '<input type="hidden" name="positionen-' + index + '-id" value="">' +
+            '<input type="number" name="positionen-' + index + '-reihenfolge" value="' + (index+1) + '" style="width:60px;">' +
+        '</td>' +
+        '<td>' + artikelDropdownHtml(index) + '</td>' +
+        '<td>' +
+            '<input type="text" name="positionen-' + index + '-bezeichnung" placeholder="Bezeichnung" style="width:100%;margin-bottom:4px;">' +
+            '<textarea name="positionen-' + index + '-beschreibung" placeholder="Beschreibung (optional)" rows="2" style="width:100%;"></textarea>' +
+        '</td>' +
+        '<td><input type="number" name="positionen-' + index + '-menge" value="1" step="0.01" style="width:100%;"></td>' +
+        '<td><input type="text" name="positionen-' + index + '-einheit" value="pauschal" style="width:100%;"></td>' +
+        '<td><input type="number" name="positionen-' + index + '-einzelpreis" value="0.00" step="0.01" style="width:100%;"></td>' +
+        '<td><input type="number" name="positionen-' + index + '-steuersatz" value="19" step="1" style="width:100%;"></td>' +
+        '<td><button type="button" class="btn btn-danger" onclick="positionLoeschen(this)" style="font-size:11px;padding:4px 8px;">✕</button></td>';
+    body.appendChild(zeile);
+    anzahlSetzen(index + 1);
+}
+
+function positionLoeschen(btn) {
+    var zeile = btn.closest('tr');
+    var deleteCheckbox = zeile.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    if (deleteCheckbox) {
+        deleteCheckbox.checked = true;
+        zeile.style.opacity = '0.3';
+        btn.textContent = '↩';
+        btn.onclick = function() { positionWiederherstellen(btn); };
+    } else {
+        zeile.remove();
+    }
+}
+
+function positionWiederherstellen(btn) {
+    var zeile = btn.closest('tr');
+    var deleteCheckbox = zeile.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    if (deleteCheckbox) {
+        deleteCheckbox.checked = false;
+        zeile.style.opacity = '1';
+        btn.textContent = '✕';
+        btn.onclick = function() { positionLoeschen(btn); };
+    }
+}
+
+// ── ARTIKEL-LOOKUP ────────────────────────────────────────────────
+document.addEventListener('change', function(e) {
+    if (e.target.name && e.target.name.includes('-artikel')) {
+        var artikelId = e.target.value;
+        if (!artikelId) return;
+        var zeile  = e.target.closest('tr');
+        var prefix = e.target.name.replace('-artikel', '');
+        fetch('/artikel/' + artikelId + '/daten/')
+            .then(function(r) { return r.json(); })
+            .then(function(daten) {
+                var bez     = zeile.querySelector('[name="' + prefix + '-bezeichnung"]');
+                var beschr  = zeile.querySelector('[name="' + prefix + '-beschreibung"]');
+                var einheit = zeile.querySelector('[name="' + prefix + '-einheit"]');
+                var preis   = zeile.querySelector('[name="' + prefix + '-einzelpreis"]');
+                var steuer  = zeile.querySelector('[name="' + prefix + '-steuersatz"]');
+                if (bez)     bez.value     = daten.bezeichnung;
+                if (beschr)  beschr.value  = daten.beschreibung;
+                if (einheit) einheit.value = daten.einheit;
+                if (preis)   preis.value   = daten.einzelpreis;
+                if (steuer)  steuer.value  = parseFloat(daten.steuersatz).toFixed(0);
+            });
+    }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    editorInit('editor-einleitung', 'id_einleitungstext', '{{ form.einleitungstext.value|default:""|escapejs }}');
+    editorInit('editor-schluss',    'id_schlusstext',     '{{ form.schlusstext.value|default:""|escapejs }}');
+});
+</script>
+
+{% endblock %}

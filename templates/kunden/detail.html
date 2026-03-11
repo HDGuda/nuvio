@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block titel %}{{ kunde }} – Nuvio{% endblock %}
+{% block seitentitel %}{{ kunde }}{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'kunde_bearbeiten' kunde.pk %}" class="btn btn-secondary">Bearbeiten</a>
+    <a href="{% url 'angebot_neu' %}?kunde={{ kunde.pk }}" class="btn btn-primary">+ Neues Angebot</a>
+{% endblock %}
+
+{% block inhalt %}
+
+<!-- KUNDENDATEN -->
+<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 24px;">
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-titel">Kontaktdaten</div>
+        </div>
+        <div class="card-body">
+            <table style="width: 100%; font-size: 14px;">
+                <tr><td style="color: #999; padding: 6px 0; width: 140px;">Name/Firma</td><td>{{ kunde.firma|default:"–" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Ansprechpartner</td><td>{{ kunde.ansprechpartner|default:"–" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Adresse</td><td>{{ kunde.strasse }}<br>{{ kunde.plz }} {{ kunde.ort }}<br>{{ kunde.land }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">E-Mail</td><td>{{ kunde.email|default:"–" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Telefon</td><td>{{ kunde.telefon|default:"–" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Website</td><td>{{ kunde.website|default:"–" }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">USt-IdNr.</td><td>{{ kunde.ust_id|default:"–" }}</td></tr>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="card-titel">Notizen</div>
+        </div>
+        <div class="card-body">
+            {% if kunde.notizen %}
+                <p style="line-height: 1.7; color: #555;">{{ kunde.notizen }}</p>
+            {% else %}
+                <p style="color: #999;">Keine Notizen vorhanden.</p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ANGEBOTE DES KUNDEN -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Angebote</div>
+        <a href="{% url 'angebot_neu' %}" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;">+ Neu</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if angebote %}
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>Nummer</th>
+                    <th>Datum</th>
+                    <th>Betreff</th>
+                    <th>Status</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for angebot in angebote %}
+                <tr>
+                    <td><a href="{% url 'angebot_detail' angebot.pk %}">{{ angebot.nummer }}</a></td>
+                    <td>{{ angebot.datum|date:"d.m.Y" }}</td>
+                    <td>{{ angebot.betreff|default:"–" }}</td>
+                    <td><span class="badge badge-{{ angebot.status }}">{{ angebot.get_status_display }}</span></td>
+                    <td><a href="{% url 'angebot_pdf' angebot.pk %}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">PDF</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 24px; text-align: center; color: #999;">Noch keine Angebote für diesen Kunden.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- RECHNUNGEN DES KUNDEN -->
+<div class="card">
+    <div class="card-header">
+        <div class="card-titel">Rechnungen</div>
+        <a href="{% url 'rechnung_neu' %}" class="btn btn-primary" style="font-size: 12px; padding: 6px 12px;">+ Neu</a>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {% if rechnungen %}
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>Nummer</th>
+                    <th>Datum</th>
+                    <th>Fällig am</th>
+                    <th>Status</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rechnung in rechnungen %}
+                <tr>
+                    <td><a href="{% url 'rechnung_detail' rechnung.pk %}">{{ rechnung.nummer }}</a></td>
+                    <td>{{ rechnung.datum|date:"d.m.Y" }}</td>
+                    <td>{{ rechnung.faellig_am|date:"d.m.Y"|default:"–" }}</td>
+                    <td><span class="badge badge-{{ rechnung.status }}">{{ rechnung.get_status_display }}</span></td>
+                    <td><a href="{% url 'rechnung_pdf' rechnung.pk %}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">PDF</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div style="padding: 24px; text-align: center; color: #999;">Noch keine Rechnungen für diesen Kunden.</div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- ZURÜCK -->
+<a href="{% url 'kunden_liste' %}" class="btn btn-secondary">← Zurück zur Liste</a>
+
+{% endblock %}
