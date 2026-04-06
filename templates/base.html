@@ -5,95 +5,130 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block titel %}Rechnungssystem{% endblock %}</title>
     <link rel="icon" type="image/png" href="/media/favicon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
     <style>
+        :root {
+            --gold:        #c8a96e;
+            --gold-dark:   #b8994e;
+            --gold-light:  #f7f0e3;
+            --navy:        #1a1a2e;
+            --navy-mid:    #2d2d4e;
+            --sidebar-bg:  #f8f7f4;
+            --sidebar-hover: #ede9e0;
+            --sidebar-aktiv: #ede9e0;
+            --bg:          #eeebe4;
+            --card-bg:     #ffffff;
+            --text:        #2a2a2a;
+            --text-mid:    #666;
+            --text-light:  #aaa;
+            --border:      #e2ddd5;
+            --radius:      8px;
+            --shadow:      0 1px 3px rgba(0,0,0,0.06), 0 2px 8px rgba(0,0,0,0.04);
+        }
+
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-family: 'DM Sans', 'Helvetica Neue', sans-serif;
             font-size: 14px;
-            background: #f5f5f5;
-            color: #333;
+            background: var(--bg);
+            color: var(--text);
             display: flex;
             min-height: 100vh;
+            line-height: 1.55;
+            -webkit-font-smoothing: antialiased;
         }
 
         /* ── SIDEBAR ── */
         .sidebar {
-            width: 180px;
-            background: #f8f7f4;
-            color: #333;
+            width: 190px;
+            background: var(--sidebar-bg);
+            color: #fff;
             display: flex;
             flex-direction: column;
             position: fixed;
             top: 0; left: 0; bottom: 0;
             z-index: 100;
-            border-right: 1px solid #e8e4dc;
         }
 
         .sidebar-logo {
-            padding: 16px 14px;
+            padding: 18px 16px;
             border-bottom: 1px solid #e8e4dc;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .sidebar-logo .name {
-            font-size: 15px;
+            font-family: 'Lora', Georgia, serif;
+            font-size: 16px;
             font-weight: 600;
             color: #1a1a2e;
+            letter-spacing: 0.01em;
         }
 
         .sidebar-logo .sub {
             font-size: 10px;
             color: #aaa;
-            margin-top: 2px;
+            margin-top: 1px;
+            letter-spacing: 0.03em;
         }
 
         .sidebar-nav {
             flex: 1;
-            padding: 16px 0;
+            padding: 12px 0;
+            overflow-y: auto;
         }
 
         .nav-gruppe {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         .nav-gruppe-titel {
             font-size: 10px;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.14em;
             text-transform: uppercase;
             color: #bbb;
-            padding: 8px 20px 4px;
+            padding: 10px 18px 4px;
+            font-weight: 500;
         }
 
         .sidebar-nav a {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
+            gap: 9px;
+            padding: 8px 18px;
             color: #666;
             text-decoration: none;
-            font-size: 12px;
-            transition: all 0.15s;
+            font-size: 13px;
+            font-weight: 400;
+            transition: all 0.15s ease;
+            border-left: 3px solid transparent;
         }
 
-        .sidebar-nav a:hover,
-        .sidebar-nav a.aktiv {
-            background: #ede9e0;
+        .sidebar-nav a:hover {
+            background: var(--sidebar-hover);
             color: #1a1a2e;
         }
 
         .sidebar-nav a.aktiv {
-            border-left: 3px solid #c8a96e;
-            padding-left: 11px;
+            background: var(--sidebar-aktiv);
+            color: #1a1a2e;
+            border-left-color: #1a1a2e;
+            font-weight: 500;
         }
 
         .sidebar-nav .icon {
-            font-size: 16px;
+            font-size: 15px;
             width: 20px;
             text-align: center;
+            flex-shrink: 0;
         }
 
         .sidebar-footer {
-            padding: 16px 20px;
+            padding: 14px 18px;
             border-top: 1px solid #e8e4dc;
             font-size: 11px;
             color: #bbb;
@@ -101,29 +136,34 @@
 
         /* ── HAUPTBEREICH ── */
         .main {
-            margin-left: 180px;
+            margin-left: 190px;
             flex: 1;
             display: flex;
             flex-direction: column;
             min-width: 0;
-            max-width: calc(100vw - 180px);
+            max-width: calc(100vw - 190px);
             overflow-x: hidden;
         }
 
         .topbar {
-            background: #fff;
-            border-bottom: 1px solid #e8e8e8;
-            padding: 0 20px;
-            height: 52px;
+            background: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 0 24px;
+            height: 54px;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 50;
         }
 
         .topbar-titel {
-            font-size: 16px;
+            font-family: 'Lora', Georgia, serif;
+            font-size: 17px;
             font-weight: 600;
-            color: #1a1a2e;
+            color: var(--navy);
+            letter-spacing: 0.01em;
         }
 
         .topbar-actions {
@@ -132,7 +172,7 @@
         }
 
         .content {
-            padding: 20px;
+            padding: 24px;
             flex: 1;
         }
 
@@ -142,32 +182,35 @@
             align-items: center;
             gap: 6px;
             padding: 8px 16px;
-            border-radius: 4px;
+            border-radius: 6px;
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
             text-decoration: none;
             border: none;
-            transition: all 0.15s;
+            transition: all 0.15s ease;
+            letter-spacing: 0.01em;
+            font-family: 'DM Sans', sans-serif;
         }
 
         .btn-primary {
-            background: #1a1a2e;
+            background: var(--navy);
             color: #fff;
         }
 
         .btn-primary:hover {
-            background: #2d2d4e;
+            background: var(--navy-mid);
         }
 
         .btn-secondary {
-            background: #fff;
-            color: #333;
-            border: 1px solid #ddd;
+            background: var(--card-bg);
+            color: var(--text);
+            border: 1px solid var(--border);
         }
 
         .btn-secondary:hover {
-            background: #f5f5f5;
+            background: #f7f5f1;
+            border-color: #ccc;
         }
 
         .btn-danger {
@@ -189,34 +232,37 @@
         }
 
         .btn-gold {
-            background: #c8a96e;
+            background: var(--gold);
             color: #fff;
         }
 
         .btn-gold:hover {
-            background: #b8994e;
+            background: var(--gold-dark);
         }
 
         /* ── KARTEN ── */
         .card {
-            background: #fff;
-            border-radius: 6px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            background: var(--card-bg);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
             margin-bottom: 24px;
         }
 
         .card-header {
             padding: 16px 24px;
-            border-bottom: 1px solid #f0f0f0;
+            border-bottom: 1px solid #f3f0ea;
             display: flex;
             align-items: center;
             justify-content: space-between;
         }
 
         .card-titel {
+            font-family: 'Lora', Georgia, serif;
             font-size: 15px;
             font-weight: 600;
-            color: #1a1a2e;
+            color: var(--navy);
+            letter-spacing: 0.01em;
         }
 
         .card-body {
@@ -233,15 +279,17 @@
             text-align: left;
             padding: 10px 16px;
             font-size: 11px;
-            letter-spacing: 0.08em;
+            letter-spacing: 0.1em;
             text-transform: uppercase;
-            color: #888;
-            border-bottom: 2px solid #f0f0f0;
+            color: var(--text-light);
+            border-bottom: 1px solid #ece8df;
+            font-weight: 500;
+            background: #faf9f6;
         }
 
         .tabelle td {
-            padding: 12px 16px;
-            border-bottom: 1px solid #f5f5f5;
+            padding: 13px 16px;
+            border-bottom: 1px solid #f5f3ee;
             color: #444;
         }
 
@@ -250,17 +298,17 @@
         }
 
         .tabelle tr:hover td {
-            background: #fafafa;
+            background: #faf9f6;
         }
 
         .tabelle a {
-            color: #1a1a2e;
+            color: var(--navy);
             text-decoration: none;
             font-weight: 500;
         }
 
         .tabelle a:hover {
-            color: #c8a96e;
+            color: #1a1a2e;
         }
 
         /* ── FORMULARE ── */
@@ -270,12 +318,12 @@
 
         .form-gruppe label {
             display: block;
-            font-size: 12px;
-            font-weight: 500;
-            color: #666;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-mid);
             margin-bottom: 6px;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.08em;
         }
 
         .form-gruppe input,
@@ -283,11 +331,13 @@
         .form-gruppe textarea {
             width: 100%;
             padding: 9px 12px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
             font-size: 14px;
-            color: #333;
-            transition: border-color 0.15s;
+            color: var(--text);
+            transition: border-color 0.15s, box-shadow 0.15s;
+            font-family: 'DM Sans', sans-serif;
+            background: #fff;
         }
 
         .form-gruppe input:focus,
@@ -295,6 +345,7 @@
         .form-gruppe textarea:focus {
             outline: none;
             border-color: #1a1a2e;
+            box-shadow: 0 0 0 3px rgba(200, 169, 110, 0.12);
         }
 
         .form-reihe {
@@ -313,14 +364,15 @@
             letter-spacing: 0.04em;
         }
 
-        .badge-entwurf    { background: #f0f0f0; color: #666; }
-        .badge-gesendet   { background: #fff3cd; color: #856404; }
-        .badge-angenommen { background: #d4edda; color: #155724; }
-        .badge-abgelehnt  { background: #f8d7da; color: #721c24; }
-        .badge-abgelaufen { background: #f0f0f0; color: #999; }
-        .badge-bezahlt    { background: #d4edda; color: #155724; }
-        .badge-ueberfaellig { background: #f8d7da; color: #721c24; }
-        .badge-storniert  { background: #f0f0f0; color: #999; }
+        .badge-entwurf    { background: #f0ede6; color: #888; }
+        .badge-gesendet   { background: #fef6de; color: #9a7c1f; }
+        .badge-angenommen { background: #e2f0e8; color: #276b3a; }
+        .badge-abgelehnt  { background: #fde8ea; color: #842029; }
+        .badge-abgelaufen { background: #f0ede6; color: #999; }
+        .badge-bezahlt    { background: #e2f0e8; color: #276b3a; }
+        .badge-ueberfaellig { background: #fde8ea; color: #842029; }
+        .badge-storniert  { background: #f0ede6; color: #999; }
+        .badge-teilbezahlt { background: #fef0d8; color: #8a6020; }
 
         /* ── MELDUNGEN ── */
         .meldungen {
@@ -329,14 +381,14 @@
 
         .meldung {
             padding: 12px 16px;
-            border-radius: 4px;
+            border-radius: 6px;
             margin-bottom: 8px;
             font-size: 13px;
         }
 
-        .meldung-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .meldung-error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .meldung-info    { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .meldung-success { background: #e2f0e8; color: #276b3a; border: 1px solid #c3dfc9; }
+        .meldung-error   { background: #fde8ea; color: #842029; border: 1px solid #f5c6cb; }
+        .meldung-info    { background: #e0f0f5; color: #0c5460; border: 1px solid #bee5eb; }
 
         /* ── HILFSKLASSEN ── */
         .text-rechts  { text-align: right; }
@@ -347,7 +399,7 @@
         .flex         { display: flex; }
         .flex-zwischen { display: flex; justify-content: space-between; align-items: center; }
         .gap-8        { gap: 8px; }
-        .trennlinie   { border: none; border-top: 1px solid #f0f0f0; margin: 24px 0; }
+        .trennlinie   { border: none; border-top: 1px solid #ece8df; margin: 24px 0; }
     </style>
 </head>
 <body>
@@ -355,8 +407,11 @@
 <!-- SIDEBAR -->
 <aside class="sidebar">
     <div class="sidebar-logo">
-        <div class="name">Nuvio</div>
-        <div class="sub">Freiberufler-Edition</div>
+        <img src="/media/logo/NuvioLogo.png" alt="Nuvio" style="height: 32px; width: auto; flex-shrink: 0;">
+        <div>
+            <div class="name">Nuvio</div>
+            <div class="sub">Freiberufler-Edition</div>
+        </div>
     </div>
 
     <nav class="sidebar-nav">

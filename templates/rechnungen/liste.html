@@ -26,9 +26,9 @@
     <div class="card-header">
         <div class="card-titel">
             {% if status_filter %}
-                Rechnungen: {{ status_filter|capfirst }} ({{ page_obj.paginator.count }})
+                Rechnungen: {{ status_filter|capfirst }}
             {% else %}
-                Alle Rechnungen ({{ page_obj.paginator.count }})
+                Alle Rechnungen
             {% endif %}
         </div>
     </div>

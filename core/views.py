@@ -22,6 +22,10 @@ from .forms import (
 )
 
 from io import BytesIO
+import os
+import zipfile
+from datetime import datetime
+from django.conf import settings
 
 try:
     from weasyprint import HTML
@@ -93,6 +97,18 @@ def seitennummern_einstempeln(pdf_bytes, y_position=686):
         return output.getvalue()
     except Exception:
         return pdf_bytes
+
+
+def _seiten_y_gutschrift(zeilen_vor_seite):
+    """
+    Wie _seiten_y, aber kalibriert für Gutschriften.
+    Basis: 2 Zeilen (Nummer, Datum) → y=669.
+    """
+    basis_zeilen = 2
+    basis_y = 700.5
+    zeilen_hoehe = 15
+    extra = zeilen_vor_seite - basis_zeilen
+    return basis_y - (extra * zeilen_hoehe)
 
 
 def _seiten_y(zeilen_vor_seite):
@@ -864,6 +880,37 @@ def einstellungen(request):
 
 
 # ─────────────────────────────────────────────
+#  DATENSICHERUNG
+# ─────────────────────────────────────────────
+
+def datensicherung(request):
+    buffer = BytesIO()
+
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Datenbank
+        db_pfad = settings.DATABASES['default']['NAME']
+        if os.path.exists(db_pfad):
+            zf.write(db_pfad, 'db.sqlite3')
+
+        # Media-Ordner
+        media_root = settings.MEDIA_ROOT
+        if os.path.exists(media_root):
+            for ordner, unterordner, dateien in os.walk(media_root):
+                for datei in dateien:
+                    voller_pfad = os.path.join(ordner, datei)
+                    relativer_pfad = os.path.relpath(voller_pfad, media_root)
+                    zf.write(voller_pfad, os.path.join('media', relativer_pfad))
+
+    buffer.seek(0)
+    zeitstempel = datetime.now().strftime('%Y%m%d_%H%M%S')
+    dateiname = f'Nuvio_Backup_{zeitstempel}.zip'
+
+    response = HttpResponse(buffer, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{dateiname}"'
+    return response
+
+
+# ─────────────────────────────────────────────
 #  ARTIKEL DATEN (JSON für Formular)
 # ─────────────────────────────────────────────
 
@@ -969,7 +1016,7 @@ def gutschrift_pdf(request, pk):
         zeilen = 2
         if gutschrift.rechnung:
             zeilen += 1
-        pdf = seitennummern_einstempeln(pdf, y_position=_seiten_y(zeilen))
+        pdf = seitennummern_einstempeln(pdf, y_position=_seiten_y_gutschrift(zeilen))
         if einstellungen.hintergrund_pdf:
             pdf = pdf_mit_hintergrund(pdf, einstellungen.hintergrund_pdf)
         response = HttpResponse(pdf, content_type='application/pdf')

@@ -112,7 +112,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="form-gruppe">
                 <label>Format</label>{{ form.angebot_format }}
-                <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>AN-2026-0001</strong></div>
+                <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>AN-26-0001</strong></div>
             </div>
         </div>
     </div>
@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
             <div class="form-gruppe">
                 <label>Format</label>{{ form.rechnung_format }}
-                <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>RE-2026-0001</strong></div>
+                <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>RE-26-0001</strong></div>
             </div>
         </div>
     </div>
@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="form-gruppe">
             <label>Format</label>{{ form.gutschrift_format }}
-            <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>GS-2026-0001</strong></div>
+            <div class="text-grau text-klein" style="margin-top: 4px;">Platzhalter: {prefix}, {jahr}, {nummer:04d} · Beispiel: <strong>GS-26-0001</strong></div>
         </div>
     </div>
 </div>
@@ -392,6 +392,19 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
+<!-- DATENSICHERUNG -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">Datensicherung</div></div>
+    <div class="card-body">
+        <p style="margin: 0 0 14px 0; color: #555; font-size: 14px;">
+            Erstellt einen ZIP-Download mit der Datenbank und allen hochgeladenen Dateien (Logo, Hintergrund-PDF, E-Mail-Anhänge).
+        </p>
+        <a href="{% url 'datensicherung' %}" class="btn btn-secondary">
+            🗄️ Datensicherung herunterladen
+        </a>
+    </div>
+</div>
+
 <!-- SPEICHERN -->
 <div style="display: flex; gap: 10px;">
     <button type="submit" class="btn btn-primary">Einstellungen speichern</button>
@@ -405,7 +418,30 @@ document.addEventListener('DOMContentLoaded', function() {
     .editor-toolbar button:hover { background: #e8e8e8; }
     .editor-box { min-height: 80px; padding: 10px 12px; border: 1px solid #ddd; border-radius: 0 0 4px 4px; font-size: 14px; font-family: inherit; line-height: 1.6; outline: none; background: #fff; box-sizing: border-box; width: 100%; }
     .editor-box:focus { border-color: #1a1a2e; }
+
+    /* Django ClearableFileInput: Checkbox + Clear-Label ausblenden */
+    input[type="checkbox"][name$="-clear"] { display: none; }
+    label[for$="-clear_id"] { display: none; }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.form-gruppe').forEach(function(gruppe) {
+        // Textnodes "Currently:" und "Change:" leeren
+        Array.from(gruppe.childNodes).forEach(function(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                if (/^\s*(Currently:|Change:)\s*$/.test(node.textContent)) {
+                    node.textContent = '';
+                }
+            }
+        });
+        // Den "Currently: <a href>"-Link ausblenden
+        gruppe.querySelectorAll(':scope > a[href]').forEach(function(a) {
+            a.style.display = 'none';
+        });
+    });
+});
+</script>
 
 <script>
 function editorFett(btn) {

@@ -51,6 +51,7 @@ urlpatterns = [
 
     # Einstellungen
     path('einstellungen/', views.einstellungen, name='einstellungen'),
+    path('datensicherung/', views.datensicherung, name='datensicherung'),
     # Artikel Daten (JSON)
     path('artikel/<int:pk>/daten/', views.artikel_daten, name='artikel_daten'),
     path('angebote/<int:pk>/loeschen/', views.angebot_loeschen, name='angebot_loeschen'),

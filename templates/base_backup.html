@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block titel %}Rechnungssystem{% endblock %}</title>
+    <link rel="icon" type="image/png" href="/media/favicon.png">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            font-size: 14px;
+            background: #f5f5f5;
+            color: #333;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            width: 180px;
+            background: #f8f7f4;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            z-index: 100;
+            border-right: 1px solid #e8e4dc;
+        }
+
+        .sidebar-logo {
+            padding: 16px 14px;
+            border-bottom: 1px solid #e8e4dc;
+        }
+
+        .sidebar-logo .name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+
+        .sidebar-logo .sub {
+            font-size: 10px;
+            color: #aaa;
+            margin-top: 2px;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 0;
+        }
+
+        .nav-gruppe {
+            margin-bottom: 8px;
+        }
+
+        .nav-gruppe-titel {
+            font-size: 10px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #bbb;
+            padding: 8px 20px 4px;
+        }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            color: #666;
+            text-decoration: none;
+            font-size: 12px;
+            transition: all 0.15s;
+        }
+
+        .sidebar-nav a:hover,
+        .sidebar-nav a.aktiv {
+            background: #ede9e0;
+            color: #1a1a2e;
+        }
+
+        .sidebar-nav a.aktiv {
+            border-left: 3px solid #c8a96e;
+            padding-left: 11px;
+        }
+
+        .sidebar-nav .icon {
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid #e8e4dc;
+            font-size: 11px;
+            color: #bbb;
+        }
+
+        /* ── HAUPTBEREICH ── */
+        .main {
+            margin-left: 180px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            max-width: calc(100vw - 180px);
+            overflow-x: hidden;
+        }
+
+        .topbar {
+            background: #fff;
+            border-bottom: 1px solid #e8e8e8;
+            padding: 0 20px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .topbar-titel {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+
+        .topbar-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .content {
+            padding: 20px;
+            flex: 1;
+        }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            text-decoration: none;
+            border: none;
+            transition: all 0.15s;
+        }
+
+        .btn-primary {
+            background: #1a1a2e;
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: #2d2d4e;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: #333;
+            border: 1px solid #ddd;
+        }
+
+        .btn-secondary:hover {
+            background: #f5f5f5;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: #fff;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: #fff;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-gold {
+            background: #c8a96e;
+            color: #fff;
+        }
+
+        .btn-gold:hover {
+            background: #b8994e;
+        }
+
+        /* ── KARTEN ── */
+        .card {
+            background: #fff;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+            margin-bottom: 24px;
+        }
+
+        .card-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-titel {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+
+        .card-body {
+            padding: 24px;
+        }
+
+        /* ── TABELLEN ── */
+        .tabelle {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .tabelle th {
+            text-align: left;
+            padding: 10px 16px;
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #888;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .tabelle td {
+            padding: 12px 16px;
+            border-bottom: 1px solid #f5f5f5;
+            color: #444;
+        }
+
+        .tabelle tr:last-child td {
+            border-bottom: none;
+        }
+
+        .tabelle tr:hover td {
+            background: #fafafa;
+        }
+
+        .tabelle a {
+            color: #1a1a2e;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .tabelle a:hover {
+            color: #c8a96e;
+        }
+
+        /* ── FORMULARE ── */
+        .form-gruppe {
+            margin-bottom: 20px;
+        }
+
+        .form-gruppe label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            color: #666;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .form-gruppe input,
+        .form-gruppe select,
+        .form-gruppe textarea {
+            width: 100%;
+            padding: 9px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #333;
+            transition: border-color 0.15s;
+        }
+
+        .form-gruppe input:focus,
+        .form-gruppe select:focus,
+        .form-gruppe textarea:focus {
+            outline: none;
+            border-color: #1a1a2e;
+        }
+
+        .form-reihe {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        /* ── STATUS-BADGES ── */
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.04em;
+        }
+
+        .badge-entwurf    { background: #f0f0f0; color: #666; }
+        .badge-gesendet   { background: #fff3cd; color: #856404; }
+        .badge-angenommen { background: #d4edda; color: #155724; }
+        .badge-abgelehnt  { background: #f8d7da; color: #721c24; }
+        .badge-abgelaufen { background: #f0f0f0; color: #999; }
+        .badge-bezahlt    { background: #d4edda; color: #155724; }
+        .badge-ueberfaellig { background: #f8d7da; color: #721c24; }
+        .badge-storniert  { background: #f0f0f0; color: #999; }
+
+        /* ── MELDUNGEN ── */
+        .meldungen {
+            margin-bottom: 24px;
+        }
+
+        .meldung {
+            padding: 12px 16px;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+
+        .meldung-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .meldung-error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .meldung-info    { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+
+        /* ── HILFSKLASSEN ── */
+        .text-rechts  { text-align: right; }
+        .text-grau    { color: #999; }
+        .text-klein   { font-size: 12px; }
+        .mt-16        { margin-top: 16px; }
+        .mt-24        { margin-top: 24px; }
+        .flex         { display: flex; }
+        .flex-zwischen { display: flex; justify-content: space-between; align-items: center; }
+        .gap-8        { gap: 8px; }
+        .trennlinie   { border: none; border-top: 1px solid #f0f0f0; margin: 24px 0; }
+    </style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+    <div class="sidebar-logo" style="display: flex; align-items: center; gap: 10px;">
+        <img src="/media/logo/NuvioLogo.png" alt="Nuvio" style="height: 32px; width: auto; flex-shrink: 0;">
+        <div>
+            <div class="name">Nuvio</div>
+            <div class="sub">Freiberufler-Edition</div>
+        </div>
+    </div>
+
+    <nav class="sidebar-nav">
+        <div class="nav-gruppe">
+            <div class="nav-gruppe-titel">Übersicht</div>
+            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}aktiv{% endif %}">
+                <span class="icon">📊</span> Dashboard
+            </a>
+        </div>
+
+        <div class="nav-gruppe">
+            <div class="nav-gruppe-titel">Dokumente</div>
+            <a href="{% url 'angebote_liste' %}" class="{% if 'angebot' in request.resolver_match.url_name %}aktiv{% endif %}">
+                <span class="icon">📋</span> Angebote
+            </a>
+            <a href="{% url 'rechnungen_liste' %}" class="{% if 'rechnung' in request.resolver_match.url_name and 'gutschrift' not in request.resolver_match.url_name %}aktiv{% endif %}">
+                <span class="icon">🧾</span> Rechnungen
+            </a>
+            <a href="{% url 'gutschriften_liste' %}" class="{% if 'gutschrift' in request.resolver_match.url_name %}aktiv{% endif %}">
+                <span class="icon">↩️</span> Gutschriften
+            </a>
+        </div>
+
+        <div class="nav-gruppe">
+            <div class="nav-gruppe-titel">Stammdaten</div>
+            <a href="{% url 'kunden_liste' %}" class="{% if 'kunde' in request.resolver_match.url_name %}aktiv{% endif %}">
+                <span class="icon">👥</span> Kunden
+            </a>
+            <a href="{% url 'artikel_liste' %}" class="{% if 'artikel' in request.resolver_match.url_name %}aktiv{% endif %}">
+                <span class="icon">📦</span> Artikel
+            </a>
+        </div>
+
+        <div class="nav-gruppe">
+            <div class="nav-gruppe-titel">System</div>
+            <a href="{% url 'einstellungen' %}" class="{% if request.resolver_match.url_name == 'einstellungen' %}aktiv{% endif %}">
+                <span class="icon">⚙️</span> Einstellungen
+            </a>
+        </div>
+    </nav>
+
+    <div class="sidebar-footer">
+        © 2026 Nuvio · Entwickelt mit Claude
+    </div>
+</aside>
+
+<!-- HAUPTBEREICH -->
+<div class="main">
+    <div class="topbar">
+        <div class="topbar-titel">{% block seitentitel %}{% endblock %}</div>
+        <div class="topbar-actions">{% block topbar_actions %}{% endblock %}</div>
+    </div>
+
+    <div class="content">
+        <!-- Meldungen (z.B. "Gespeichert!") -->
+        {% if messages %}
+        <div class="meldungen">
+            {% for message in messages %}
+            <div class="meldung meldung-{{ message.tags }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block inhalt %}{% endblock %}
+    </div>
+</div>
+
+</body>
+</html>

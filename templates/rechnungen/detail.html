@@ -31,6 +31,9 @@
                 {% if rechnung.gesendet_am %}
                 <tr><td style="color: #999; padding: 6px 0;">Gesendet am</td><td>{{ rechnung.gesendet_am|date:"d.m.Y" }}</td></tr>
                 {% endif %}
+                {% if rechnung.bezahlt_am and rechnung.status == "bezahlt" %}
+                <tr><td style="color: #999; padding: 6px 0;">Bezahlt am</td><td>{{ rechnung.bezahlt_am|date:"d.m.Y" }}</td></tr>
+                {% endif %}
                 {% if rechnung.angebot %}
                 <tr><td style="color: #999; padding: 6px 0;">Aus Angebot</td><td><a href="{% url 'angebot_detail' rechnung.angebot.pk %}">{{ rechnung.angebot.nummer }}</a></td></tr>
                 {% endif %}

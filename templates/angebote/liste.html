@@ -26,9 +26,9 @@
     <div class="card-header">
         <div class="card-titel">
             {% if status_filter %}
-                Angebote: {{ status_filter|capfirst }} ({{ page_obj.paginator.count }})
+                Angebote: {{ status_filter|capfirst }}
             {% else %}
-                Alle Angebote ({{ page_obj.paginator.count }})
+                Alle Angebote
             {% endif %}
         </div>
     </div>
