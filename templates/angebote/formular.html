@@ -10,7 +10,7 @@
 
 <!-- KOPFDATEN -->
 <div class="card">
-    <div class="card-header"><div class="card-titel">Angebotsdaten</div></div>
+    <div class="card-header"><div class="card-titel">Angebotsdaten{% if angebot.nummer %}<span style="margin-left:24px; font-size:14px; font-weight:400; color:#888;">{{ angebot.nummer }}</span>{% endif %}</div></div>
     <div class="card-body">
 
         <div class="form-reihe">
@@ -19,7 +19,7 @@
         </div>
         <div class="form-reihe">
             <div class="form-gruppe"><label>Datum</label>{{ form.datum }}</div>
-            <div class="form-gruppe"><label>Gültig bis</label>{{ form.gueltig_bis }}</div>
+            <div class="form-gruppe"><label>Gültig bis <span style="font-weight:400; font-size:11px; color:#aaa;">(optional)</span></label>{{ form.gueltig_bis }}</div>
             <div class="form-gruppe"><label>Status</label>{{ form.status }}</div>
         </div>
 
@@ -86,10 +86,10 @@
             <thead>
                 <tr>
                     <th style="width:150px;">Aus Artikelstamm</th>
-                    <th>Bezeichnung</th>
+                    <th>Bezeichnung<br><span style="font-weight:400; font-size:10px;">Beschreibung</span></th>
                     <th style="width:54px;">Menge</th>
                     <th style="width:80px;">Einheit</th>
-                    <th style="width:56px;">Einzelpreis</th>
+                    <th style="width:56px;">Brutto-<br>Einzelpreis</th>
                     <th style="width:84px;">MwSt. %</th>
                     <th style="width:36px;"></th>
                 </tr>
@@ -100,7 +100,7 @@
                     <td style="display:none;">
                         {{ position_form.id }}
                         {{ position_form.reihenfolge }}
-                        {% if position_form.DELETE %}<div style="display:none;">{{ position_form.DELETE }}</div>{% endif %}
+                        {{ position_form.DELETE }}
                     </td>
                     <td>{{ position_form.artikel }}</td>
                     <td>{{ position_form.bezeichnung }}{{ position_form.beschreibung }}</td>
@@ -226,10 +226,10 @@ function positionHinzufuegen() {
             '<input type="text" name="positionen-' + index + '-bezeichnung" placeholder="Bezeichnung" style="width:100%;margin-bottom:4px;">' +
             '<textarea name="positionen-' + index + '-beschreibung" placeholder="Beschreibung (optional)" rows="2" style="width:100%;"></textarea>' +
         '</td>' +
-        '<td><input type="number" name="positionen-' + index + '-menge" value="1" step="0.01" style="width:100%;"></td>' +
+        '<td><input type="text" inputmode="decimal" name="positionen-' + index + '-menge" value="1" style="width:100%;"></td>' +
         '<td><input type="text" name="positionen-' + index + '-einheit" value="pauschal" style="width:100%;"></td>' +
-        '<td><input type="number" name="positionen-' + index + '-einzelpreis" value="0.00" step="0.01" style="width:100%;"></td>' +
-        '<td><input type="number" name="positionen-' + index + '-steuersatz" value="19" step="1" style="width:100%;"></td>' +
+        '<td><input type="text" inputmode="decimal" name="positionen-' + index + '-einzelpreis" value="" style="width:100%;"></td>' +
+        '<td><input type="text" inputmode="numeric" name="positionen-' + index + '-steuersatz" value="19" style="width:100%;"></td>' +
         '<td><button type="button" class="btn btn-danger" onclick="positionLoeschen(this)" style="font-size:11px;padding:4px 8px;">✕</button></td>';
     body.appendChild(zeile);
     anzahlSetzen(index + 1);
@@ -237,14 +237,21 @@ function positionHinzufuegen() {
 
 function positionLoeschen(btn) {
     var zeile = btn.closest('tr');
-    var deleteCheckbox = zeile.querySelector('input[type="checkbox"][name$="-DELETE"]');
-    if (deleteCheckbox) {
-        deleteCheckbox.checked = true;
-        zeile.style.opacity = '0.3';
-        btn.textContent = '↩';
-        btn.onclick = function() { positionWiederherstellen(btn); };
+    var idInput = zeile.querySelector('input[name$="-id"]');
+    var hatDatenbankId = idInput && idInput.value !== '';
+    if (hatDatenbankId) {
+        // Bestehende Position: DELETE-Checkbox setzen, Zeile ausgrauen
+        var deleteCheckbox = zeile.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        if (deleteCheckbox) {
+            deleteCheckbox.checked = true;
+            zeile.style.opacity = '0.3';
+            btn.textContent = '↩';
+            btn.onclick = function() { positionWiederherstellen(btn); };
+        }
     } else {
-        zeile.remove();
+        // Neue Position (noch nicht gespeichert): Felder leeren, Zeile ausblenden
+        zeile.querySelectorAll('input[type="text"], textarea').forEach(function(f) { f.value = ''; });
+        zeile.style.display = 'none';
     }
 }
 
@@ -277,8 +284,10 @@ document.addEventListener('change', function(e) {
                 if (bez)     bez.value     = daten.bezeichnung;
                 if (beschr)  beschr.value  = daten.beschreibung;
                 if (einheit) einheit.value = daten.einheit;
-                if (preis)   preis.value   = daten.einzelpreis;
-                if (steuer)  steuer.value  = parseFloat(daten.steuersatz).toFixed(0);
+                if (preis)   preis.value   = parseFloat(daten.einzelpreis).toFixed(2).replace('.', ',');
+                if (steuer)  steuer.value  = parseFloat(daten.steuersatz) % 1 === 0
+                    ? String(parseInt(daten.steuersatz))
+                    : String(parseFloat(daten.steuersatz)).replace('.', ',');
             });
     }
 });
@@ -288,6 +297,79 @@ document.addEventListener('change', function(e) {
 document.addEventListener('DOMContentLoaded', function() {
     editorInit('editor-einleitung', 'id_einleitungstext', '{{ form.einleitungstext.value|default:""|escapejs }}');
     editorInit('editor-schluss',    'id_schlusstext',     '{{ form.schlusstext.value|default:""|escapejs }}');
+
+    // Beim Bearbeiten: leere Extra-Zeile ausblenden
+    {% if angebot.pk %}
+    document.querySelectorAll('#positionen-body tr.position-zeile').forEach(function(zeile) {
+        var idInput = zeile.querySelector('input[name$="-id"]');
+        var bez = zeile.querySelector('[name$="-bezeichnung"]');
+        if (idInput && idInput.value === '' && (!bez || !bez.value.trim())) {
+            zeile.style.display = 'none';
+        }
+    });
+    {% endif %}
+
+    // ── Validierung der Positionen ──
+    document.querySelector('form').addEventListener('submit', function(e) {
+        var fehler = [];
+        var zeilen = document.querySelectorAll('#positionen-body tr.position-zeile');
+        var aktiveZeilen = Array.from(zeilen).filter(function(z) {
+            if (z.style.display === 'none') return false;
+            var del = z.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            return !(del && del.checked);
+        });
+        var zuLoeschendeZeilen = Array.from(zeilen).filter(function(z) {
+            if (z.style.display === 'none') return false;
+            var del = z.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            return del && del.checked;
+        });
+        if (aktiveZeilen.length === 0 && zuLoeschendeZeilen.length === 0) {
+            fehler.push('Bitte mindestens eine Position eingeben.');
+        }
+        aktiveZeilen.forEach(function(zeile, i) {
+            var nr = i + 1;
+            var bez     = zeile.querySelector('[name$="-bezeichnung"]');
+            var menge   = zeile.querySelector('[name$="-menge"]');
+            var preis   = zeile.querySelector('[name$="-einzelpreis"]');
+            var steuer  = zeile.querySelector('[name$="-steuersatz"]');
+
+            // Felder zurücksetzen
+            [bez, menge, preis, steuer].forEach(function(f) { if (f) f.style.outline = ''; });
+
+            if (!bez || !bez.value.trim()) {
+                fehler.push('Position ' + nr + ': Bezeichnung fehlt.');
+                if (bez) bez.style.outline = '2px solid #c0392b';
+            }
+            var mengeVal = menge ? parseFloat(menge.value.replace(',', '.')) : NaN;
+            if (!menge || isNaN(mengeVal) || mengeVal <= 0) {
+                fehler.push('Position ' + nr + ': Menge muss größer als 0 sein.');
+                if (menge) menge.style.outline = '2px solid #c0392b';
+            }
+            var preisVal = preis ? parseFloat(preis.value.replace(',', '.')) : NaN;
+            if (!preis || isNaN(preisVal)) {
+                fehler.push('Position ' + nr + ': Einzelpreis fehlt (0 ist erlaubt).');
+                if (preis) preis.style.outline = '2px solid #c0392b';
+            }
+            var steuerVal = steuer ? parseFloat(steuer.value.replace(',', '.')) : NaN;
+            if (!steuer || isNaN(steuerVal)) {
+                fehler.push('Position ' + nr + ': Mehrwertsteuer fehlt.');
+                if (steuer) steuer.style.outline = '2px solid #c0392b';
+            }
+        });
+        if (fehler.length > 0) {
+            e.preventDefault();
+            var msg = document.getElementById('validierung-meldung');
+            if (!msg) {
+                msg = document.createElement('div');
+                msg.id = 'validierung-meldung';
+                msg.style.cssText = 'background:#fdecea; border-left:4px solid #c0392b; padding:12px 16px; margin-bottom:16px; border-radius:4px; font-size:13px; color:#c0392b;';
+                document.querySelector('[type="submit"]').closest('div').before(msg);
+            }
+            msg.innerHTML = '<strong>Bitte folgende Felder prüfen:</strong><ul style="margin:6px 0 0 16px;">' +
+                fehler.map(function(f) { return '<li>' + f + '</li>'; }).join('') + '</ul>';
+            msg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
 });
 </script>
 

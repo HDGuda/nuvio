@@ -85,7 +85,7 @@ def seitennummern_einstempeln(pdf_bytes, y_position=686):
             c = canvas.Canvas(overlay_buffer, pagesize=A4)
             c.setFont("Helvetica", 7.5)
             c.setFillColorRGB(0.2, 0.2, 0.2)
-            c.drawRightString(538, y_position, f"{i+1} von {total}")
+            c.drawRightString(538, y_position, f"Seite {i+1} von {total}")
             c.save()
             overlay_buffer.seek(0)
             overlay = PdfReader(overlay_buffer).pages[0]
@@ -264,6 +264,7 @@ def angebot_detail(request, pk):
 
 
 def angebot_neu(request):
+    AngebotPositionFormSet.extra = 1
     if request.method == 'POST':
         form = AngebotForm(request.POST)
         formset = AngebotPositionFormSet(request.POST)
@@ -289,6 +290,7 @@ def angebot_neu(request):
 
 
 def angebot_bearbeiten(request, pk):
+    AngebotPositionFormSet.extra = 0
     angebot = get_object_or_404(Angebot, pk=pk)
     if request.method == 'POST':
         form = AngebotForm(request.POST, instance=angebot)
@@ -304,7 +306,8 @@ def angebot_bearbeiten(request, pk):
     return render(request, 'angebote/formular.html', {
         'form': form,
         'formset': formset,
-        'titel': 'Angebot bearbeiten'
+        'titel': 'Angebot bearbeiten',
+        'angebot': angebot,
     })
 
 
