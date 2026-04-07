@@ -165,10 +165,7 @@ class AngebotPositionForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not self.instance.pk:
-            # Standardwerte für neue Positionen
-            self.fields['einheit'].initial = 'pauschal'
-            self.fields['steuersatz'].initial = 19
-            self.fields['reihenfolge'].initial = 1
+            pass  # Keine initial-Werte setzen – sonst erkennt Django neue Positionen nicht als geändert 
         else:
             # Bestehende Werte mit Komma als Dezimaltrennzeichen anzeigen
             def de(val):

@@ -267,7 +267,7 @@ def angebot_neu(request):
     AngebotPositionFormSet.extra = 1
     if request.method == 'POST':
         form = AngebotForm(request.POST)
-        formset = AngebotPositionFormSet(request.POST)
+        formset = AngebotPositionFormSet(request.POST, prefix='positionen')  # ← prefix ergänzt
         if form.is_valid() and formset.is_valid():
             angebot = form.save()
             formset.instance = angebot
@@ -275,13 +275,12 @@ def angebot_neu(request):
             messages.success(request, f'Angebot „{angebot.nummer}" wurde erstellt.')
             return redirect('angebot_detail', pk=angebot.pk)
     else:
-        # Standardtexte aus Einstellungen laden
         einstellungen = Einstellungen.laden()
         form = AngebotForm(initial={
             'einleitungstext': einstellungen.angebot_einleitung,
             'schlusstext':     einstellungen.angebot_schlusstext,
         })
-        formset = AngebotPositionFormSet()
+        formset = AngebotPositionFormSet(prefix='positionen')  # ← prefix ergänzt
     return render(request, 'angebote/formular.html', {
         'form':    form,
         'formset': formset,

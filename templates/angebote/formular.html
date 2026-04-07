@@ -220,6 +220,7 @@ function positionHinzufuegen() {
         '<td style="display:none;">' +
             '<input type="hidden" name="positionen-' + index + '-id" value="">' +
             '<input type="number" name="positionen-' + index + '-reihenfolge" value="' + (index+1) + '" style="width:60px;">' +
+            '<input type="checkbox" name="positionen-' + index + '-DELETE" style="display:none;">' +
         '</td>' +
         '<td>' + artikelDropdownHtml(index) + '</td>' +
         '<td>' +
@@ -241,7 +242,7 @@ function positionLoeschen(btn) {
     var hatDatenbankId = idInput && idInput.value !== '';
     if (hatDatenbankId) {
         // Bestehende Position: DELETE-Checkbox setzen, Zeile ausgrauen
-        var deleteCheckbox = zeile.querySelector('input[type="checkbox"][name$="-DELETE"]');
+        var deleteCheckbox = zeile.querySelector('input[name$="-DELETE"]');
         if (deleteCheckbox) {
             deleteCheckbox.checked = true;
             zeile.style.opacity = '0.3';
@@ -249,15 +250,16 @@ function positionLoeschen(btn) {
             btn.onclick = function() { positionWiederherstellen(btn); };
         }
     } else {
-        // Neue Position (noch nicht gespeichert): Felder leeren, Zeile ausblenden
-        zeile.querySelectorAll('input[type="text"], textarea').forEach(function(f) { f.value = ''; });
-        zeile.style.display = 'none';
+        // Neue Position (noch nicht gespeichert): Zeile entfernen, TOTAL_FORMS korrigieren
+        zeile.remove();
+        var alleZeilen = document.querySelectorAll('#positionen-body tr.position-zeile');
+        anzahlSetzen(alleZeilen.length);
     }
 }
 
 function positionWiederherstellen(btn) {
     var zeile = btn.closest('tr');
-    var deleteCheckbox = zeile.querySelector('input[type="checkbox"][name$="-DELETE"]');
+    var deleteCheckbox = zeile.querySelector('input[name$="-DELETE"]');
     if (deleteCheckbox) {
         deleteCheckbox.checked = false;
         zeile.style.opacity = '1';
@@ -315,12 +317,12 @@ document.addEventListener('DOMContentLoaded', function() {
         var zeilen = document.querySelectorAll('#positionen-body tr.position-zeile');
         var aktiveZeilen = Array.from(zeilen).filter(function(z) {
             if (z.style.display === 'none') return false;
-            var del = z.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            var del = z.querySelector('input[name$="-DELETE"]');
             return !(del && del.checked);
         });
         var zuLoeschendeZeilen = Array.from(zeilen).filter(function(z) {
             if (z.style.display === 'none') return false;
-            var del = z.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            var del = z.querySelector('input[name$="-DELETE"]');
             return del && del.checked;
         });
         if (aktiveZeilen.length === 0 && zuLoeschendeZeilen.length === 0) {
