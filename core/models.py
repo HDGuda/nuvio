@@ -508,6 +508,20 @@ class Rechnung(models.Model):
     def brutto(self):
         return round(self.netto + self.mwst_gesamt, 2)
 
+    @property
+    def bezahlt_summe(self):
+        """Summe aller gespeicherten Teilzahlungen."""
+        return round(sum(z.betrag for z in self.zahlungen.all()), 2)
+
+    @property
+    def gutschrift_summe(self):
+        """Summe aller Gutschriften zu dieser Rechnung."""
+        return round(sum(g.brutto for g in self.gutschriften.all()), 2)
+
+    @property
+    def offener_betrag(self):
+        """Brutto abzüglich Gutschriften und aller Teilzahlungen."""
+        return round(self.brutto - self.gutschrift_summe - self.bezahlt_summe, 2)
 
     def gutschrift_status_aktualisieren(self):
         gutschriften = self.gutschriften.all()
@@ -523,6 +537,26 @@ class Rechnung(models.Model):
         else:
             self.status = 'teilgutgeschrieben'
         self.save(update_fields=['status'])
+
+
+# ─────────────────────────────────────────────
+#  ZAHLUNG (Teilzahlungen zu einer Rechnung)
+# ─────────────────────────────────────────────
+
+class Zahlung(models.Model):
+    rechnung    = models.ForeignKey(Rechnung, on_delete=models.CASCADE, related_name='zahlungen', verbose_name='Rechnung')
+    datum       = models.DateField(verbose_name='Zahlungsdatum')
+    betrag      = models.DecimalField(max_digits=10, decimal_places=2, verbose_name='Betrag (€)')
+    erstellt_am = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Zahlung'
+        verbose_name_plural = 'Zahlungen'
+        ordering = ['datum', 'erstellt_am']
+
+    def __str__(self):
+        return f'{self.betrag} € am {self.datum} zu {self.rechnung.nummer}'
+
 
 # ─────────────────────────────────────────────
 #  RECHNUNG-POSITION

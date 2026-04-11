@@ -72,9 +72,9 @@
                     <th>Bezeichnung</th>
                     <th>Menge</th>
                     <th>Einheit</th>
-                    <th class="text-rechts">Einzelpreis</th>
+                    <th class="text-rechts">Netto-<br>Einzelpreis</th>
                     <th class="text-rechts">MwSt.</th>
-                    <th class="text-rechts">Gesamt</th>
+                    <th class="text-rechts">Gesamt brutto</th>
                 </tr>
             </thead>
             <tbody>
@@ -89,9 +89,9 @@
                     </td>
                     <td>{{ position.menge|euro }}</td>
                     <td>{{ position.einheit }}</td>
-                    <td class="text-rechts">{{ position.einzelpreis|euro }} €</td>
+                    <td class="text-rechts">{{ position.einzelpreis_netto|euro }} €</td>
                     <td class="text-rechts">{{ position.steuersatz|prozent }} %</td>
-                    <td class="text-rechts"><strong>{{ position.gesamtpreis_netto|euro }} €</strong></td>
+                    <td class="text-rechts"><strong>{{ position.gesamtpreis_brutto|euro }} €</strong></td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -170,18 +170,39 @@
     </div>
     <div class="card-body">
 
-        {% if rechnung.bezahlt_am %}
-        <div style="display: flex; align-items: center; gap: 16px; padding: 12px 16px; background: #f0faf3; border-radius: 8px; border-left: 3px solid #28a745; margin-bottom: 20px;">
-            <span style="font-size: 22px;">✅</span>
-            <div>
-                <div style="font-size: 14px; font-weight: 600; color: #1a1a2e;">
-                    {{ rechnung.bezahlt_betrag|euro }} € eingegangen am {{ rechnung.bezahlt_am|date:"d.m.Y" }}
-                </div>
-                <div style="font-size: 12px; color: #999;">
-                    {% if rechnung.status == 'bezahlt' %}Vollständig bezahlt{% else %}Teilzahlung – offen: {{ rechnung.offener_betrag|euro }} €{% endif %}
-                </div>
-            </div>
-        </div>
+        {% if rechnung.zahlungen.exists %}
+        <table style="width: 100%; font-size: 13px; margin-bottom: 20px; border-collapse: collapse;">
+            <thead>
+                <tr style="color: #999; border-bottom: 1px solid #eee;">
+                    <th style="text-align: left; padding: 4px 0; font-weight: 400;">Datum</th>
+                    <th style="text-align: right; padding: 4px 0; font-weight: 400;">Betrag</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for z in rechnung.zahlungen.all %}
+                <tr style="border-bottom: 1px solid #f5f5f5;">
+                    <td style="padding: 6px 0; color: #444;">{{ z.datum|date:"d.m.Y" }}</td>
+                    <td style="padding: 6px 0; text-align: right;">{{ z.betrag|euro }} €</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr style="border-top: 2px solid #1a1a2e; font-weight: 600;">
+                    <td style="padding: 8px 0;">Gesamt eingegangen</td>
+                    <td style="padding: 8px 0; text-align: right;">{{ rechnung.bezahlt_summe|euro }} €</td>
+                </tr>
+                {% if rechnung.status != 'bezahlt' %}
+                <tr>
+                    <td style="padding: 4px 0; color: #c0392b;">Noch offen</td>
+                    <td style="padding: 4px 0; text-align: right; color: #c0392b;">{{ rechnung.offener_betrag|euro }} €</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="2" style="padding: 4px 0; color: #28a745;">✅ Vollständig bezahlt</td>
+                </tr>
+                {% endif %}
+            </tfoot>
+        </table>
         {% endif %}
 
         <form method="post" action="{% url 'rechnung_zahlungseingang' rechnung.pk %}">

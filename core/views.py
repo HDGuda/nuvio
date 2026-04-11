@@ -8,6 +8,7 @@ from .models import (
     Angebot, AngebotPosition,
     Rechnung, RechnungPosition,
     Gutschrift, GutschriftPosition,
+    Zahlung,
 )
 from .forms import (
     KundeForm, ArtikelForm,
@@ -756,9 +757,10 @@ def rechnungen_liste(request):
 
 def rechnung_detail(request, pk):
     rechnung = get_object_or_404(Rechnung, pk=pk)
+    offen = rechnung.offener_betrag
     zahlungsformular = ZahlungseingangForm(initial={
-        'bezahlt_am':     rechnung.bezahlt_am or timezone.now().date(),
-        'bezahlt_betrag': rechnung.bezahlt_betrag or rechnung.brutto,
+        'bezahlt_am':     timezone.now().date(),
+        'bezahlt_betrag': offen if offen > 0 else rechnung.brutto,
     })
     return render(request, 'rechnungen/detail.html', {
         'rechnung':         rechnung,
@@ -767,7 +769,7 @@ def rechnung_detail(request, pk):
 
 
 def rechnung_zahlungseingang(request, pk):
-    """Speichert Zahlungseingang und setzt Status automatisch."""
+    """Speichert Zahlungseingang als eigenes Zahlung-Objekt und setzt Status automatisch."""
     rechnung = get_object_or_404(Rechnung, pk=pk)
     if request.method != 'POST':
         return redirect('rechnung_detail', pk=pk)
@@ -777,16 +779,20 @@ def rechnung_zahlungseingang(request, pk):
         messages.error(request, 'Bitte Datum und Betrag korrekt eingeben.')
         return redirect('rechnung_detail', pk=pk)
 
-    rechnung.bezahlt_am     = form.cleaned_data['bezahlt_am']
-    rechnung.bezahlt_betrag = form.cleaned_data['bezahlt_betrag']
+    zahlung = Zahlung.objects.create(
+        rechnung=rechnung,
+        datum=form.cleaned_data['bezahlt_am'],
+        betrag=form.cleaned_data['bezahlt_betrag'],
+    )
 
-    if rechnung.bezahlt_betrag >= rechnung.brutto:
+    # Status anhand der Gesamtsumme aller Zahlungen neu berechnen
+    if rechnung.bezahlt_summe >= rechnung.brutto:
         rechnung.status = 'bezahlt'
     else:
         rechnung.status = 'teilbezahlt'
+    rechnung.save(update_fields=['status'])
 
-    rechnung.save(update_fields=['bezahlt_am', 'bezahlt_betrag', 'status'])
-    messages.success(request, f'Zahlungseingang von {rechnung.bezahlt_betrag} € wurde gespeichert.')
+    messages.success(request, f'Zahlungseingang von {zahlung.betrag} € wurde gespeichert.')
     return redirect('rechnung_detail', pk=pk)
 
 
@@ -835,6 +841,7 @@ def rechnung_bearbeiten(request, pk):
         'formset': formset,
         'titel': 'Rechnung bearbeiten',
         'artikel_liste': artikel,
+        'rechnung': rechnung,
     })
 
 

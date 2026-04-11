@@ -8,6 +8,28 @@
 <form method="post">
 {% csrf_token %}
 
+{% if form.errors or formset.errors %}
+<div style="background:#fdecea; border-left:4px solid #c0392b; padding:12px 16px; margin-bottom:16px; border-radius:4px; font-size:13px; color:#c0392b;">
+    <strong>Das Formular konnte nicht gespeichert werden. Bitte folgende Fehler prüfen:</strong>
+    {% if form.errors %}
+    <ul style="margin:6px 0 0 16px;">
+        {% for field, errors in form.errors.items %}
+            {% for error in errors %}<li>{{ field }}: {{ error }}</li>{% endfor %}
+        {% endfor %}
+    </ul>
+    {% endif %}
+    {% if formset.errors %}
+    <ul style="margin:6px 0 0 16px;">
+        {% for fehler_dict in formset.errors %}
+            {% for field, errors in fehler_dict.items %}
+                {% for error in errors %}<li>Position – {{ field }}: {{ error }}</li>{% endfor %}
+            {% endfor %}
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- KOPFDATEN -->
 <div class="card">
     <div class="card-header"><div class="card-titel">Angebotsdaten{% if angebot.nummer %}<span style="margin-left:24px; font-size:14px; font-weight:400; color:#888;">{{ angebot.nummer }}</span>{% endif %}</div></div>
@@ -300,15 +322,19 @@ document.addEventListener('DOMContentLoaded', function() {
     editorInit('editor-einleitung', 'id_einleitungstext', '{{ form.einleitungstext.value|default:""|escapejs }}');
     editorInit('editor-schluss',    'id_schlusstext',     '{{ form.schlusstext.value|default:""|escapejs }}');
 
-    // Beim Bearbeiten: leere Extra-Zeile ausblenden
+    // Beim Bearbeiten: leere Extra-Zeilen entfernen und TOTAL_FORMS korrigieren
     {% if angebot.pk %}
+    var leerZeilen = [];
     document.querySelectorAll('#positionen-body tr.position-zeile').forEach(function(zeile) {
         var idInput = zeile.querySelector('input[name$="-id"]');
         var bez = zeile.querySelector('[name$="-bezeichnung"]');
         if (idInput && idInput.value === '' && (!bez || !bez.value.trim())) {
-            zeile.style.display = 'none';
+            leerZeilen.push(zeile);
         }
     });
+    leerZeilen.forEach(function(zeile) { zeile.remove(); });
+    var verbleibend = document.querySelectorAll('#positionen-body tr.position-zeile').length;
+    anzahlSetzen(verbleibend);
     {% endif %}
 
     // ── Validierung der Positionen ──

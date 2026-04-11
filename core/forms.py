@@ -138,6 +138,13 @@ class AngebotForm(forms.ModelForm):
             'interne_notizen':  forms.Textarea(attrs={'rows': 2}),
         }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Diese Felder werden über einen custom Rich-Text-Editor (hidden input)
+        # übergeben und dürfen daher nicht als required gelten.
+        self.fields['einleitungstext'].required = False
+        self.fields['schlusstext'].required = False
+
 
 class AngebotPositionForm(forms.ModelForm):
     # Optionales Feld: Artikel aus Stamm übernehmen
@@ -148,6 +155,12 @@ class AngebotPositionForm(forms.ModelForm):
         help_text='Optional: Artikel auswählen um Felder automatisch zu befüllen'
     )
 
+    # Als CharField deklarieren, damit Djangos DecimalField-Validator nicht
+    # vor clean_* greift und Komma-formatierte Werte ("1,00") ablehnt.
+    menge       = forms.CharField(widget=forms.TextInput(attrs={'inputmode': 'decimal'}))
+    einzelpreis = forms.CharField(widget=forms.TextInput(attrs={'inputmode': 'decimal'}))
+    steuersatz  = forms.CharField(widget=forms.TextInput(attrs={'inputmode': 'numeric'}))
+
     class Meta:
         model = AngebotPosition
         fields = [
@@ -157,16 +170,11 @@ class AngebotPositionForm(forms.ModelForm):
         widgets = {
             'beschreibung': forms.Textarea(attrs={'rows': 2}),
             'reihenfolge':  forms.NumberInput(attrs={'style': 'width: 60px'}),
-            'menge':        forms.TextInput(attrs={'inputmode': 'decimal'}),
-            'einzelpreis':  forms.TextInput(attrs={'inputmode': 'decimal'}),
-            'steuersatz':   forms.TextInput(attrs={'inputmode': 'numeric'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.instance.pk:
-            pass  # Keine initial-Werte setzen – sonst erkennt Django neue Positionen nicht als geändert 
-        else:
+        if self.instance.pk:
             # Bestehende Werte mit Komma als Dezimaltrennzeichen anzeigen
             def de(val):
                 if val is None:
@@ -262,6 +270,12 @@ class RechnungPositionForm(forms.ModelForm):
         help_text='Optional: Artikel auswählen um Felder automatisch zu befüllen'
     )
 
+    # Als CharField deklarieren, damit Djangos DecimalField-Validator nicht
+    # vor clean_* greift und Komma-formatierte Werte ("1,00") ablehnt.
+    menge       = forms.CharField(widget=forms.TextInput(attrs={'inputmode': 'decimal'}))
+    einzelpreis = forms.CharField(widget=forms.TextInput(attrs={'inputmode': 'decimal'}))
+    steuersatz  = forms.CharField(widget=forms.TextInput(attrs={'inputmode': 'numeric'}))
+
     class Meta:
         model = RechnungPosition
         fields = [
@@ -271,10 +285,47 @@ class RechnungPositionForm(forms.ModelForm):
         widgets = {
             'beschreibung': forms.Textarea(attrs={'rows': 2}),
             'reihenfolge':  forms.NumberInput(attrs={'style': 'width: 60px'}),
-            'menge':        forms.NumberInput(attrs={'step': '0.01'}),
-            'einzelpreis':  forms.NumberInput(attrs={'step': '0.01'}),
-            'steuersatz':   forms.NumberInput(attrs={'step': '0.01'}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance.pk:
+            def de(val):
+                if val is None:
+                    return ''
+                return '{:.2f}'.format(float(val)).replace('.', ',')
+            def de_steuer(val):
+                if val is None:
+                    return ''
+                f = float(val)
+                return str(int(f)) if f == int(f) else str(f).replace('.', ',')
+            self.initial['menge']       = de(self.instance.menge)
+            self.initial['einzelpreis'] = de(self.instance.einzelpreis)
+            self.initial['steuersatz']  = de_steuer(self.instance.steuersatz)
+
+    def _dezimal(self, feldname):
+        val = self.cleaned_data.get(feldname)
+        if val is None:
+            return val
+        if isinstance(val, str):
+            val = val.strip()
+            if ',' in val:
+                val = val.replace('.', '').replace(',', '.')
+            try:
+                from decimal import Decimal
+                return Decimal(val)
+            except Exception:
+                raise forms.ValidationError('Ungültiger Wert.')
+        return val
+
+    def clean_menge(self):
+        return self._dezimal('menge')
+
+    def clean_einzelpreis(self):
+        return self._dezimal('einzelpreis')
+
+    def clean_steuersatz(self):
+        return self._dezimal('steuersatz')
 
 
 # FormSet: mehrere Positionen gleichzeitig bearbeiten
