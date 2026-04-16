@@ -471,13 +471,29 @@ def angebot_email_senden(request, pk):
 
     # ── Outlook per COM öffnen ──
     try:
-        import win32com.client, subprocess, time, pythoncom
+        import win32com.client, pythoncom
         pythoncom.CoInitialize()
-        outlook_pfad = r"C:\Program Files\Microsoft Office\root\Office16\OUTLOOK.EXE"
-        subprocess.Popen([outlook_pfad])
-        time.sleep(3)
         outlook = win32com.client.Dispatch('Outlook.Application')
         mail = outlook.CreateItem(0)  # 0 = olMailItem
+
+        # Absenderkonto anhand der Firmen-E-Mail aus den Einstellungen setzen
+        absender_email = (einstellungen.email or '').lower().strip()
+        if absender_email:
+            try:
+                for i in range(1, outlook.Session.Accounts.Count + 1):
+                    account = outlook.Session.Accounts.Item(i)
+                    if account.SmtpAddress.lower() == absender_email:
+                        mail.SendUsingAccount = account
+                        break
+            except Exception:
+                pass
+            # Zusätzlich SentOnBehalfOfName setzen – greift auch wenn
+            # SendUsingAccount von Outlook ignoriert wird
+            try:
+                mail.SentOnBehalfOfName = einstellungen.email
+            except Exception:
+                pass
+
         mail.To       = form.cleaned_data['empfaenger']
         mail.Subject  = form.cleaned_data['betreff']
         mail.HTMLBody = _plaintext_zu_html(form.cleaned_data['text'])
@@ -596,13 +612,29 @@ def rechnung_email_senden(request, pk):
         anhaenge.append(extra_pfad)
 
     try:
-        import win32com.client, subprocess, time, pythoncom
+        import win32com.client, pythoncom
         pythoncom.CoInitialize()
-        outlook_pfad = r"C:\Program Files\Microsoft Office\root\Office16\OUTLOOK.EXE"
-        subprocess.Popen([outlook_pfad])
-        time.sleep(3)
         outlook = win32com.client.Dispatch('Outlook.Application')
         mail = outlook.CreateItem(0)
+
+        # Absenderkonto anhand der Firmen-E-Mail aus den Einstellungen setzen
+        absender_email = (einstellungen.email or '').lower().strip()
+        if absender_email:
+            try:
+                for i in range(1, outlook.Session.Accounts.Count + 1):
+                    account = outlook.Session.Accounts.Item(i)
+                    if account.SmtpAddress.lower() == absender_email:
+                        mail.SendUsingAccount = account
+                        break
+            except Exception:
+                pass
+            # Zusätzlich SentOnBehalfOfName setzen – greift auch wenn
+            # SendUsingAccount von Outlook ignoriert wird
+            try:
+                mail.SentOnBehalfOfName = einstellungen.email
+            except Exception:
+                pass
+
         mail.To       = form.cleaned_data['empfaenger']
         mail.Subject  = form.cleaned_data['betreff']
         mail.HTMLBody = _plaintext_zu_html(form.cleaned_data['text'])
@@ -712,13 +744,29 @@ def gutschrift_email_senden(request, pk):
         anhaenge.append(extra_pfad)
 
     try:
-        import win32com.client, subprocess, time, pythoncom
+        import win32com.client, pythoncom
         pythoncom.CoInitialize()
-        outlook_pfad = r"C:\Program Files\Microsoft Office\root\Office16\OUTLOOK.EXE"
-        subprocess.Popen([outlook_pfad])
-        time.sleep(3)
         outlook = win32com.client.Dispatch('Outlook.Application')
         mail = outlook.CreateItem(0)
+
+        # Absenderkonto anhand der Firmen-E-Mail aus den Einstellungen setzen
+        absender_email = (einstellungen.email or '').lower().strip()
+        if absender_email:
+            try:
+                for i in range(1, outlook.Session.Accounts.Count + 1):
+                    account = outlook.Session.Accounts.Item(i)
+                    if account.SmtpAddress.lower() == absender_email:
+                        mail.SendUsingAccount = account
+                        break
+            except Exception:
+                pass
+            # Zusätzlich SentOnBehalfOfName setzen – greift auch wenn
+            # SendUsingAccount von Outlook ignoriert wird
+            try:
+                mail.SentOnBehalfOfName = einstellungen.email
+            except Exception:
+                pass
+
         mail.To       = form.cleaned_data['empfaenger']
         mail.Subject  = form.cleaned_data['betreff']
         mail.HTMLBody = _plaintext_zu_html(form.cleaned_data['text'])
