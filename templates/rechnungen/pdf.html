@@ -433,7 +433,7 @@
           </tr>
           <tr class="summen-mwst">
             <td colspan="3"></td>
-            <td>zzgl. MwSt.</td>
+            <td>zzgl. {{ rechnung.positionen.first.steuersatz|prozent }} % MwSt.</td>
             <td>{{ rechnung.mwst_gesamt|euro }} €</td>
           </tr>
           <tr class="summen-brutto">

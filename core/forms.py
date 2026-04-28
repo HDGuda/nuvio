@@ -107,13 +107,15 @@ class ArtikelForm(forms.ModelForm):
             'aktiv',
         ]
         widgets = {
-            'beschreibung': forms.Textarea(attrs={'rows': 2}),
+            'beschreibung': forms.Textarea(attrs={'rows': 4}),
             'einzelpreis':  forms.NumberInput(attrs={'step': '0.01', 'placeholder': 'Bruttopreis inkl. MwSt.'}),
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        if not self.instance.pk:
+        if self.instance.pk:
+            self.initial['steuersatz'] = float(self.instance.steuersatz)
+        else:
             self.fields['steuersatz'].initial = 19.00
 
 

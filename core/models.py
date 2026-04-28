@@ -353,7 +353,7 @@ class Angebot(models.Model):
 
     @property
     def brutto(self):
-        return round(self.netto + self.mwst_gesamt, 2)
+        return round(sum(p.gesamtpreis_brutto for p in self.positionen.all()), 2)
 
     def in_rechnung_umwandeln(self):
         """Erstellt eine neue Rechnung auf Basis dieses Angebots."""

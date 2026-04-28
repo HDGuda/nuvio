@@ -69,12 +69,12 @@
             <thead>
                 <tr>
                     <th style="width: 30px;">#</th>
-                    <th>Bezeichnung</th>
+                    <th>Bezeichnung<br><span style="font-weight: normal;">Beschreibung</span></th>
                     <th style="width: 60px;">Menge</th>
                     <th style="width: 70px;">Einheit</th>
-                    <th class="text-rechts" style="width: 100px;">Einzelpreis</th>
+                    <th class="text-rechts" style="width: 100px;">Netto-<br>Einzelpreis</th>
                     <th class="text-rechts" style="width: 84px;">MwSt.</th>
-                    <th class="text-rechts" style="width: 108px;">Gesamt</th>
+                    <th class="text-rechts" style="width: 108px;">Gesamt<br>Brutto</th>
                 </tr>
             </thead>
             <tbody>
@@ -91,7 +91,7 @@
                     <td>{{ position.einheit }}</td>
                     <td class="text-rechts">{{ position.einzelpreis_netto|euro }} €</td>
                     <td class="text-rechts">{{ position.steuersatz|prozent }} %</td>
-                    <td class="text-rechts"><strong>{{ position.gesamtpreis_netto|euro }} €</strong></td>
+                    <td class="text-rechts"><strong>{{ position.gesamtpreis_brutto|euro }} €</strong></td>
                 </tr>
                 {% endfor %}
             </tbody>
