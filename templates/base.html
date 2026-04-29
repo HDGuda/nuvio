@@ -127,6 +127,11 @@
             flex-shrink: 0;
         }
 
+        .sidebar-nav .logout-btn:hover {
+            background: var(--sidebar-hover);
+            color: #1a1a2e;
+        }
+
         .sidebar-footer {
             padding: 14px 18px;
             border-top: 1px solid #e8e4dc;
@@ -142,7 +147,8 @@
             flex-direction: column;
             min-width: 0;
             max-width: calc(100vw - 190px);
-            overflow-x: hidden;
+            /* overflow-x: hidden;  ← diese Zeile entfernen oder ersetzen */
+            clip-path: inset(0);   /* ← verhindert horizontalen Überlauf ohne sticky zu brechen */
         }
 
         .topbar {
@@ -449,6 +455,15 @@
             <div class="nav-gruppe-titel">System</div>
             <a href="{% url 'einstellungen' %}" class="{% if request.resolver_match.url_name == 'einstellungen' %}aktiv{% endif %}">
                 <span class="icon">⚙️</span> Einstellungen
+            </a>
+            <form method="post" action="{% url 'logout' %}" id="logout-form">
+                {% csrf_token %}
+            </form>
+            <a href="#" onclick="document.getElementById('logout-form').submit(); return false;"
+               onmouseover="this.style.background='var(--sidebar-hover)'; this.style.color='#1a1a2e';"
+               onmouseout="this.style.background=''; this.style.color='#666';"
+               style="display:flex; align-items:center; gap:9px; padding:8px 18px; color:#666; text-decoration:none; font-size:13px; font-weight:400; border-left:3px solid transparent; transition:all 0.15s ease;">
+                <span class="icon">⏻</span> Abmelden
             </a>
         </div>
     </nav>
