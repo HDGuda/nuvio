@@ -15,14 +15,38 @@
 
             <div class="form-reihe">
                 <div class="form-gruppe">
-                    <label>Name/Firma</label>
+                    <label>Firma (optional)</label>
                     {{ form.firma }}
                 </div>
+            </div>
+
+            <div class="form-reihe">
                 <div class="form-gruppe">
-                    <label>Ansprechpartner</label>
-                    {{ form.ansprechpartner }}
+                    <label id="label-nachname">Nachname</label>
+                    {{ form.nachname }}
+                </div>
+                <div class="form-gruppe">
+                    <label id="label-vorname">Vorname</label>
+                    {{ form.vorname }}
                 </div>
             </div>
+
+            <script>
+            (function () {
+                var firmaInput    = document.getElementById('id_firma');
+                var labelNachname = document.getElementById('label-nachname');
+                var labelVorname  = document.getElementById('label-vorname');
+
+                function aktualisiereLables() {
+                    var hatFirma = firmaInput.value.trim() !== '';
+                    labelNachname.textContent = hatFirma ? 'Nachname (Ansprechpartner)' : 'Nachname';
+                    labelVorname.textContent  = hatFirma ? 'Vorname (Ansprechpartner)'  : 'Vorname';
+                }
+
+                firmaInput.addEventListener('input', aktualisiereLables);
+                aktualisiereLables();
+            })();
+            </script>
 
             <div class="form-gruppe">
                 <label>Straße</label>

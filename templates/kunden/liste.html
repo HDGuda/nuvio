@@ -14,7 +14,7 @@
     <div class="card-body" style="padding: 16px 24px;">
         <form method="get">
             <div style="display: flex; gap: 10px;">
-                <input type="text" name="suche" value="{{ suche }}" placeholder="Nach Name/Firma oder Ansprechpartner suchen..." style="flex: 1; padding: 9px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                <input type="text" name="suche" value="{{ suche }}" placeholder="Nach Nachname, Vorname oder Firma suchen..." style="flex: 1; padding: 9px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
                 <button type="submit" class="btn btn-primary">Suchen</button>
                 {% if suche %}
                 <a href="{% url 'kunden_liste' %}" class="btn btn-secondary">Zurücksetzen</a>
@@ -40,8 +40,7 @@
         <table class="tabelle">
             <thead>
                 <tr>
-                    <th>Name/Firma</th>
-                    <th>Ansprechpartner</th>
+                    <th>Name</th>
                     <th>E-Mail</th>
                     <th>Telefon</th>
                     <th>Aktionen</th>
@@ -50,8 +49,7 @@
             <tbody>
                 {% for kunde in kunden %}
                 <tr>
-                    <td><a href="{% url 'kunde_detail' kunde.pk %}">{{ kunde.firma|default:"–" }}</a></td>
-                    <td>{{ kunde.ansprechpartner|default:"–" }}</td>
+                    <td><a href="{% url 'kunde_detail' kunde.pk %}">{{ kunde.anzeigename }}</a></td>
                     <td>{{ kunde.email|default:"–" }}</td>
                     <td>{{ kunde.telefon|default:"–" }}</td>
                     <td>

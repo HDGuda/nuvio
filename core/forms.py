@@ -84,7 +84,7 @@ class KundeForm(forms.ModelForm):
     class Meta:
         model = Kunde
         fields = [
-            'firma', 'ansprechpartner',
+            'firma', 'nachname', 'vorname',
             'strasse', 'plz', 'ort', 'land',
             'email', 'telefon', 'website',
             'ust_id', 'notizen',
@@ -92,6 +92,22 @@ class KundeForm(forms.ModelForm):
         widgets = {
             'notizen': forms.Textarea(attrs={'rows': 3}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Firma-Wert aus POST oder gespeichertem Objekt bestimmen
+        firma_wert = ''
+        if self.data:
+            firma_wert = self.data.get('firma', '')
+        elif self.instance and self.instance.pk:
+            firma_wert = self.instance.firma or ''
+
+        if firma_wert:
+            self.fields['nachname'].label = 'Nachname (Ansprechpartner)'
+            self.fields['vorname'].label  = 'Vorname (Ansprechpartner)'
+        else:
+            self.fields['nachname'].label = 'Nachname'
+            self.fields['vorname'].label  = 'Vorname'
 
 
 # ─────────────────────────────────────────────

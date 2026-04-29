@@ -184,7 +184,8 @@ class Einstellungen(models.Model):
 class Kunde(models.Model):
     # Basisdaten
     firma                   = models.CharField(max_length=200, blank=True, verbose_name='Firma')
-    ansprechpartner         = models.CharField(max_length=200, blank=True, verbose_name='Ansprechpartner')
+    nachname                = models.CharField(max_length=100, verbose_name='Nachname')
+    vorname                 = models.CharField(max_length=100, blank=True, verbose_name='Vorname')
     strasse                 = models.CharField(max_length=200, verbose_name='Straße')
     plz                     = models.CharField(max_length=10, verbose_name='PLZ')
     ort                     = models.CharField(max_length=100, verbose_name='Ort')
@@ -206,12 +207,30 @@ class Kunde(models.Model):
     class Meta:
         verbose_name = 'Kunde'
         verbose_name_plural = 'Kunden'
-        ordering = ['firma', 'ansprechpartner']
+        ordering = ['firma', 'nachname', 'vorname']
 
     def __str__(self):
-        if self.firma and self.ansprechpartner:
-            return f'{self.firma} – {self.ansprechpartner}'
-        return self.firma or self.ansprechpartner or f'Kunde #{self.pk}'
+        if self.firma:
+            return self.firma
+        name = self.nachname
+        if self.vorname:
+            name = f'{self.nachname}, {self.vorname}'
+        return name or f'Kunde #{self.pk}'
+
+    @property
+    def ansprechpartner(self):
+        """Vollständiger Name (Vorname Nachname) – für Templates und PDFs."""
+        teile = [t for t in [self.vorname, self.nachname] if t]
+        return ' '.join(teile)
+
+    @property
+    def anzeigename(self):
+        """Listenansicht: 'Nachname, Vorname' oder Firma."""
+        if self.firma:
+            return self.firma
+        if self.vorname:
+            return f'{self.nachname}, {self.vorname}'
+        return self.nachname or f'Kunde #{self.pk}'
 
 
 # ─────────────────────────────────────────────

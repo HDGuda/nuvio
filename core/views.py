@@ -146,10 +146,16 @@ def dashboard(request):
 # ─────────────────────────────────────────────
 
 def kunden_liste(request):
+    from django.db.models.functions import Coalesce
+    from django.db.models import Value
     suche = request.GET.get('suche', '')
     kunden = Kunde.objects.all()
     if suche:
-        kunden = kunden.filter(firma__icontains=suche) | kunden.filter(ansprechpartner__icontains=suche)
+        kunden = kunden.filter(firma__icontains=suche)                  | kunden.filter(nachname__icontains=suche)                  | kunden.filter(vorname__icontains=suche)
+    from django.db.models.functions import NullIf
+    kunden = kunden.annotate(
+        sort_key=Coalesce(NullIf('firma', Value('')), 'nachname')
+    ).order_by('sort_key', 'vorname')
     return render(request, 'kunden/liste.html', {'kunden': kunden, 'suche': suche})
 
 
