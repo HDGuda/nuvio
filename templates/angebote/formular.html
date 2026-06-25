@@ -55,6 +55,8 @@
                         <option value="">Platzhalter einfügen…</option>
                         <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
                         <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                        <option value="&#123;&#123;kunde_vorname&#125;&#125;">Kunde: Vorname</option>
+                        <option value="&#123;&#123;kunde_nachname&#125;&#125;">Kunde: Nachname</option>
                         <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
                         <option value="&#123;&#123;angebot_nummer&#125;&#125;">Angebotsnummer</option>
                         <option value="&#123;&#123;angebot_datum&#125;&#125;">Angebotsdatum</option>
@@ -76,6 +78,8 @@
                         <option value="">Platzhalter einfügen…</option>
                         <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
                         <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                        <option value="&#123;&#123;kunde_vorname&#125;&#125;">Kunde: Vorname</option>
+                        <option value="&#123;&#123;kunde_nachname&#125;&#125;">Kunde: Nachname</option>
                         <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
                         <option value="&#123;&#123;angebot_nummer&#125;&#125;">Angebotsnummer</option>
                         <option value="&#123;&#123;angebot_datum&#125;&#125;">Angebotsdatum</option>
@@ -227,6 +231,21 @@ function anzahlSetzen(n) {
     document.getElementById('id_positionen-TOTAL_FORMS').value = n;
 }
 
+function renummerierePositionen() {
+    var zeilen = document.querySelectorAll('#positionen-body tr.position-zeile');
+    zeilen.forEach(function(zeile, index) {
+        zeile.querySelectorAll('input, select, textarea').forEach(function(el) {
+            if (el.name) {
+                el.name = el.name.replace(/positionen-\d+-/, 'positionen-' + index + '-');
+            }
+            if (el.id) {
+                el.id = el.id.replace(/id_positionen-\d+-/, 'id_positionen-' + index + '-');
+            }
+        });
+    });
+    anzahlSetzen(zeilen.length);
+}
+
 function artikelDropdownHtml(index) {
     var ersterDropdown = document.querySelector('select[name$="-artikel"]');
     if (!ersterDropdown) return '<select name="positionen-' + index + '-artikel"><option value="">---------</option></select>';
@@ -258,6 +277,51 @@ function positionHinzufuegen() {
     anzahlSetzen(index + 1);
 }
 
+// ── HILFSFUNKTION: HTML-Sonderzeichen escapen ─────────────────────
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// ── NEUE ZEILE MIT VORAUSGEFÜLLTEN DATEN EINFÜGEN ─────────────────
+// Wird beim Auflösen eines Bundle-Artikels aufgerufen.
+function positionHinzufuegenMitDaten(daten) {
+    var body  = document.getElementById('positionen-body');
+    var index = anzahlFormulare();
+    var zeile = document.createElement('tr');
+    zeile.className = 'position-zeile';
+
+    var preisFormatiert  = parseFloat(daten.einzelpreis).toFixed(2).replace('.', ',');
+    var steuerFormatiert = parseFloat(daten.steuersatz) % 1 === 0
+        ? String(parseInt(daten.steuersatz))
+        : String(parseFloat(daten.steuersatz)).replace('.', ',');
+    var mengeFormatiert  = parseFloat(daten.menge).toFixed(2).replace('.', ',');
+
+    zeile.innerHTML =
+        '<td style="display:none;">' +
+            '<input type="hidden" name="positionen-' + index + '-id" value="">' +
+            '<input type="number" name="positionen-' + index + '-reihenfolge" value="' + (index + 1) + '" style="width:60px;">' +
+            '<input type="checkbox" name="positionen-' + index + '-DELETE" style="display:none;">' +
+        '</td>' +
+        '<td>' + artikelDropdownHtml(index) + '</td>' +
+        '<td>' +
+            '<input type="text" name="positionen-' + index + '-bezeichnung" value="' + escapeHtml(daten.bezeichnung) + '" placeholder="Bezeichnung" style="width:100%;margin-bottom:4px;">' +
+            '<textarea name="positionen-' + index + '-beschreibung" placeholder="Beschreibung (optional)" rows="2" style="width:100%;">' + escapeHtml(daten.beschreibung) + '</textarea>' +
+        '</td>' +
+        '<td><input type="text" inputmode="decimal" name="positionen-' + index + '-menge" value="' + mengeFormatiert + '" style="width:100%;"></td>' +
+        '<td><input type="text" name="positionen-' + index + '-einheit" value="' + escapeHtml(daten.einheit) + '" style="width:100%;"></td>' +
+        '<td><input type="text" inputmode="decimal" name="positionen-' + index + '-einzelpreis" value="' + preisFormatiert + '" style="width:100%;"></td>' +
+        '<td><input type="text" inputmode="numeric" name="positionen-' + index + '-steuersatz" value="' + steuerFormatiert + '" style="width:100%;"></td>' +
+        '<td><button type="button" class="btn btn-danger" onclick="positionLoeschen(this)" style="font-size:11px;padding:4px 8px;">✕</button></td>';
+
+    body.appendChild(zeile);
+    anzahlSetzen(index + 1);
+}
+
 function positionLoeschen(btn) {
     var zeile = btn.closest('tr');
     var idInput = zeile.querySelector('input[name$="-id"]');
@@ -274,8 +338,7 @@ function positionLoeschen(btn) {
     } else {
         // Neue Position (noch nicht gespeichert): Zeile entfernen, TOTAL_FORMS korrigieren
         zeile.remove();
-        var alleZeilen = document.querySelectorAll('#positionen-body tr.position-zeile');
-        anzahlSetzen(alleZeilen.length);
+        renummerierePositionen();
     }
 }
 
@@ -292,14 +355,37 @@ function positionWiederherstellen(btn) {
 
 // ── ARTIKEL-LOOKUP ────────────────────────────────────────────────
 document.addEventListener('change', function(e) {
-    if (e.target.name && e.target.name.includes('-artikel')) {
-        var artikelId = e.target.value;
-        if (!artikelId) return;
-        var zeile  = e.target.closest('tr');
-        var prefix = e.target.name.replace('-artikel', '');
-        fetch('/artikel/' + artikelId + '/daten/')
-            .then(function(r) { return r.json(); })
-            .then(function(daten) {
+    if (!e.target.name || !e.target.name.includes('-artikel')) return;
+    var artikelId = e.target.value;
+    if (!artikelId) return;
+
+    var zeile  = e.target.closest('tr');
+    var prefix = e.target.name.replace('-artikel', '');
+
+    fetch('/artikel/' + artikelId + '/daten/')
+        .then(function(r) { return r.json(); })
+        .then(function(daten) {
+
+            if (daten.is_bundle) {
+                // ── Bundle: Dropdown zurücksetzen, Einzelpositionen einfügen ──
+                e.target.value = '';
+
+                daten.positionen.forEach(function(pos) {
+                    positionHinzufuegenMitDaten(pos);
+                });
+
+                // Aktuelle Zeile entfernen, wenn sie noch leer und ungespeichert ist
+                var idInput  = zeile.querySelector('input[name$="-id"]');
+                var bezInput = zeile.querySelector('[name$="-bezeichnung"]');
+                var istLeer  = (!idInput || idInput.value === '') &&
+                               (!bezInput || !bezInput.value.trim());
+                if (istLeer) {
+                    zeile.remove();
+                    renummerierePositionen();
+                }
+
+            } else {
+                // ── Einzelartikel: bestehende Zeile befüllen (bisheriges Verhalten) ──
                 var bez     = zeile.querySelector('[name="' + prefix + '-bezeichnung"]');
                 var beschr  = zeile.querySelector('[name="' + prefix + '-beschreibung"]');
                 var einheit = zeile.querySelector('[name="' + prefix + '-einheit"]');
@@ -312,8 +398,8 @@ document.addEventListener('change', function(e) {
                 if (steuer)  steuer.value  = parseFloat(daten.steuersatz) % 1 === 0
                     ? String(parseInt(daten.steuersatz))
                     : String(parseFloat(daten.steuersatz)).replace('.', ',');
-            });
-    }
+            }
+        });
 });
 </script>
 

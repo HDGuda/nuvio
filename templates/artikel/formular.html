@@ -5,13 +5,14 @@
 
 {% block inhalt %}
 
+<form method="post">
+{% csrf_token %}
+
 <div class="card" style="max-width: 640px;">
     <div class="card-header">
         <div class="card-titel">{{ titel }}</div>
     </div>
     <div class="card-body">
-        <form method="post">
-            {% csrf_token %}
 
             <div class="form-gruppe">
                 <label>Bezeichnung</label>
@@ -28,7 +29,7 @@
                     <label>Einheit</label>
                     {{ form.einheit }}
                 </div>
-                <div class="form-gruppe">
+                <div class="form-gruppe" id="einzelpreis-gruppe">
                     <label>Bruttoeinzelpreis (€)</label>
                     {{ form.einzelpreis }}
                 </div>
@@ -39,9 +40,27 @@
             </div>
 
             <div class="form-gruppe">
-                <label style="display: flex; align-items: center; gap: 8px; text-transform: none; letter-spacing: 0;">
-                    {{ form.aktiv }} Artikel ist aktiv
-                </label>
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                    <div style="margin-top: 2px;">{{ form.aktiv }}</div>
+                    <span style="font-size: 13px; font-weight: 500; color: #333; text-transform: none; letter-spacing: 0;">
+                        Artikel ist aktiv
+                    </span>
+                </div>
+            </div>
+
+            <div class="form-gruppe">
+                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                    <div style="margin-top: 2px;">{{ form.is_bundle }}</div>
+                    <div>
+                        <span style="font-size: 13px; font-weight: 500; color: #333; text-transform: none; letter-spacing: 0;">
+                            Bundle-Artikel (besteht aus mehreren Einzelartikeln)
+                        </span>
+                        <p style="margin: 4px 0 0 0; font-size: 12px; color: #888;">
+                            Bei Bundle-Artikeln wird kein eigener Preis verwendet – stattdessen werden beim Einfügen
+                            in ein Angebot die Einzelartikel unten automatisch eingefügt.
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <hr class="trennlinie">
@@ -50,8 +69,161 @@
                 <button type="submit" class="btn btn-primary">Speichern</button>
                 <a href="{% url 'artikel_liste' %}" class="btn btn-secondary">Abbrechen</a>
             </div>
-        </form>
+
     </div>
 </div>
+
+<!-- BUNDLE-POSITIONEN – nur sichtbar wenn is_bundle aktiv -->
+<div class="card" id="bundle-card" style="margin-top: 16px; display: none;">
+    <div class="card-header">
+        <div class="card-titel">Bundle-Positionen</div>
+        <button type="button" class="btn btn-secondary"
+                onclick="bundlePositionHinzufuegen()"
+                style="font-size: 12px; padding: 6px 12px;">
+            + Position hinzufügen
+        </button>
+    </div>
+    <div class="card-body" style="padding: 0;">
+        {{ formset.management_form }}
+        <div class="tabelle-container">
+        <table class="tabelle" id="bundle-tabelle">
+            <thead>
+                <tr>
+                    <th style="width: 55px;">Reihenf.</th>
+                    <th>Einzelartikel</th>
+                    <th style="width: 90px;">Menge</th>
+                    <th style="width: 36px;"></th>
+                </tr>
+            </thead>
+            <tbody id="bundle-body">
+                {% for bf in formset %}
+                <tr class="bundle-zeile">
+                    <td style="display: none;">
+                        {{ bf.id }}
+                        {% if bf.DELETE %}{{ bf.DELETE }}{% endif %}
+                    </td>
+                    <td>{{ bf.reihenfolge }}</td>
+                    <td>{{ bf.artikel }}</td>
+                    <td>{{ bf.menge }}</td>
+                    <td>
+                        <button type="button" class="btn btn-danger"
+                                onclick="bundleZeileLoeschen(this)"
+                                style="font-size: 11px; padding: 4px 8px;">✕</button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        </div>
+    </div>
+</div>
+
+</form>
+
+<style>
+    #bundle-tabelle input, #bundle-tabelle select {
+        width: 100% !important;
+        min-width: 0 !important;
+        font-size: 12px;
+        padding: 4px 6px;
+        box-sizing: border-box;
+    }
+    #bundle-tabelle td, #bundle-tabelle th { padding: 6px 4px; }
+</style>
+
+<script>
+// ── Bundle-Card ein-/ausblenden ────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+    var chk         = document.getElementById('id_is_bundle');
+    var bundleCard  = document.getElementById('bundle-card');
+    var preisGruppe = document.getElementById('einzelpreis-gruppe');
+
+    function sichtbarkeitAktualisieren() {
+        if (chk.checked) {
+            bundleCard.style.display  = '';
+            // Preis-Feld ausgrauen (Bundle hat keinen eigenen Preis)
+            if (preisGruppe) preisGruppe.style.opacity = '0.4';
+        } else {
+            bundleCard.style.display  = 'none';
+            if (preisGruppe) preisGruppe.style.opacity = '';
+        }
+    }
+
+    sichtbarkeitAktualisieren();
+    chk.addEventListener('change', sichtbarkeitAktualisieren);
+});
+
+// ── Bundle-Zeile löschen ───────────────────────────────────────────
+function bundleZeileLoeschen(btn) {
+    var zeile   = btn.closest('tr');
+    var idInput = zeile.querySelector('input[name$="-id"]');
+    var hatDbId = idInput && idInput.value !== '';
+
+    if (hatDbId) {
+        // Gespeicherte Position: DELETE-Flag setzen und Zeile ausgrauen
+        var deleteChk = zeile.querySelector('input[name$="-DELETE"]');
+        if (deleteChk) {
+            deleteChk.checked     = true;
+            zeile.style.opacity   = '0.3';
+            btn.textContent       = '↩';
+            btn.onclick           = function () { bundleZeileWiederherstellen(btn); };
+        }
+    } else {
+        // Neue (noch nicht gespeicherte) Zeile: direkt entfernen
+        zeile.remove();
+        var total = document.getElementById('id_bundle-TOTAL_FORMS');
+        // TOTAL_FORMS auf Anzahl verbleibender Zeilen korrigieren
+        total.value = document.querySelectorAll('#bundle-body tr.bundle-zeile').length;
+    }
+}
+
+function bundleZeileWiederherstellen(btn) {
+    var zeile   = btn.closest('tr');
+    var deleteChk = zeile.querySelector('input[name$="-DELETE"]');
+    if (deleteChk) {
+        deleteChk.checked   = false;
+        zeile.style.opacity = '1';
+        btn.textContent     = '✕';
+        btn.onclick         = function () { bundleZeileLoeschen(btn); };
+    }
+}
+
+// ── Neue Bundle-Zeile hinzufügen ───────────────────────────────────
+function bundlePositionHinzufuegen() {
+    var body  = document.getElementById('bundle-body');
+    var total = document.getElementById('id_bundle-TOTAL_FORMS');
+    var index = parseInt(total.value);
+
+    // Artikel-Dropdown aus erster vorhandener Zeile klonen
+    var ersteSelect = document.querySelector('select[name^="bundle-"][name$="-artikel"]');
+    var selectHtml  = ersteSelect
+        ? '<select name="bundle-' + index + '-artikel">' + ersteSelect.innerHTML + '</select>'
+        : '<select name="bundle-' + index + '-artikel"><option value="">---------</option></select>';
+
+    var zeile = document.createElement('tr');
+    zeile.className = 'bundle-zeile';
+    zeile.innerHTML =
+        '<td style="display:none;">' +
+            '<input type="hidden" name="bundle-' + index + '-id" value="">' +
+            '<input type="checkbox" name="bundle-' + index + '-DELETE" style="display:none;">' +
+        '</td>' +
+        '<td><input type="number" name="bundle-' + index + '-reihenfolge" value="' + (index + 1) + '" style="width:55px;"></td>' +
+        '<td>' + selectHtml + '</td>' +
+        '<td><input type="number" step="0.01" name="bundle-' + index + '-menge" value="1" style="width:90px;"></td>' +
+        '<td><button type="button" class="btn btn-danger" onclick="bundleZeileLoeschen(this)" style="font-size:11px;padding:4px 8px;">✕</button></td>';
+
+    body.appendChild(zeile);
+    total.value = index + 1;
+}
+</script>
+
+<style>
+    #id_aktiv, #id_is_bundle {
+        width: 15px;
+        height: 15px;
+        flex-shrink: 0;
+        margin: 0;
+    }
+</style>
 
 {% endblock %}

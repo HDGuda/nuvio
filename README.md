@@ -23,11 +23,13 @@ Von hier aus kann direkt ein neues Angebot oder eine neue Rechnung erstellt werd
 
 Kunden werden mit vollständigen Stammdaten gepflegt:
 
-* Firmenname und Ansprechpartner
+* Firmenname sowie Vor- und Nachname des Ansprechpartners (getrennt erfasst)
 * Adresse (Straße, PLZ, Ort, Land)
 * Kontaktdaten (E-Mail, Telefon, Website)
 * USt-IdNr.
 * Freitextfeld für interne Notizen
+
+Vor- und Nachname werden in Dokumenten und Listenansichten automatisch zu einem kombinierten Ansprechpartner zusammengeführt (z. B. „Schmidt, Max"), stehen in Einleitungs- und Schlusstexten aber auch einzeln als Platzhalter zur Verfügung (siehe [Platzhalter-System](#platzhalter-system)).
 
 Die Kundenliste unterstützt eine Suchfunktion. Jeder Kunde kann bearbeitet oder gelöscht werden.
 
@@ -43,6 +45,24 @@ Häufig verwendete Leistungen oder Produkte können im Artikelstamm hinterlegt u
 * Steuersatz (0 %, 7 %, 19 %)
 * Aktiv/Inaktiv-Status
 
+#### Bundle-Artikel
+
+Artikel können als **Bundle** markiert werden. Ein Bundle-Artikel besteht aus mehreren Einzelartikeln, die im Artikelstamm gepflegt werden. Wird ein Bundle-Artikel in ein Angebot eingefügt, löst die App ihn automatisch in seine Einzelpositionen auf – jeder Einzelartikel erscheint als eigene Position im Angebot.
+
+**Hinweise zur Verwendung:**
+
+* Alle Einzelartikel eines Bundles müssen zuerst als eigenständige Artikel im Artikelstamm angelegt werden.
+* Bundle-Artikel haben keinen eigenen Preis – der Gesamtpreis ergibt sich aus den Einzelartikeln.
+* Bundle-Artikel können nicht selbst Bestandteil eines anderen Bundles sein.
+* Das Bundle-Feature steht aktuell für Angebote zur Verfügung.
+
+**Ablauf:**
+
+1. Einzelartikel anlegen (falls noch nicht vorhanden)
+2. Neuen Artikel anlegen, Checkbox „Bundle-Artikel" aktivieren
+3. Einzelartikel mit Menge und Reihenfolge zuweisen
+4. Im Angebotsformular den Bundle-Artikel aus dem Artikelstamm wählen – die Einzelpositionen werden automatisch eingefügt
+
 ---
 
 ### Angebote
@@ -53,9 +73,11 @@ Angebote werden professionell erstellt, verwaltet und direkt aus der App versend
 
 * Automatische Nummerierung nach konfigurierbarem Format (z. B. `AN-2026-0001`)
 * Verknüpfung mit einem bestehenden Kunden
+* Betreff (erscheint als Betreffzeile im PDF-Dokument, oberhalb des Einleitungstexts)
 * Datum und Gültigkeitsdatum
-* Frei bearbeitbarer Einleitungs- und Schlusstext (vorbelegt aus den Einstellungen)
+* Frei bearbeitbarer Einleitungs- und Schlusstext (vorbelegt aus den Einstellungen) mit Platzhalter-Unterstützung
 * Beliebig viele Positionen mit Bezeichnung, Beschreibung, Menge, Einheit, Einzelpreis und Steuersatz
+* Einfügen von Bundle-Artikeln: automatische Auflösung in Einzelpositionen
 * Reihenfolge der Positionen manuell festlegbar
 * Interne Notizen (erscheinen nicht im PDF)
 
@@ -66,7 +88,7 @@ Jedes Angebot durchläuft einen klar definierten Status:
 
 **Ausgabe**
 
-* PDF-Generierung (mit WeasyPrint) inkl. automatischer Seitennummerierung
+* PDF-Generierung (mit WeasyPrint) inkl. Betreffzeile und automatischer Seitennummerierung
 * Optionale Hintergrundvorlage (z. B. eigenes Briefpapier als PDF)
 * Direkter E-Mail-Versand aus der App heraus mit konfigurierbarer Betreffzeile und Textvorlage sowie bis zu zwei Standard-Anhängen
 
@@ -85,7 +107,7 @@ Das Rechnungsmodul ist das Herzstück von nuvio.
 * Automatische Nummerierung (z. B. `RE-2026-0001`)
 * Verknüpfung mit Kunde und optionalem Ursprungsangebot
 * Rechnungsdatum und Fälligkeitsdatum
-* Einleitungs- und Schlusstext sowie Zahlungsbedingungen (aus Einstellungen vorbelegt)
+* Einleitungs- und Schlusstext sowie Zahlungsbedingungen (aus Einstellungen vorbelegt) mit Platzhalter-Unterstützung
 * Beliebig viele Positionen, analog zu Angeboten
 
 **Statusverwaltung**
@@ -118,13 +140,43 @@ Gutschriften können eigenständig oder als Korrekturdokument zu einer bestehend
 
 ---
 
+### Platzhalter-System
+
+In den Einleitungs- und Schlusstexten von Angeboten und Rechnungen – sowohl direkt im Dokument als auch in den vorbelegten Standardtexten unter Einstellungen – können Platzhalter eingefügt werden, die beim PDF-Export automatisch durch echte Werte ersetzt werden. Über das Dropdown „Platzhalter einfügen…" im Editor lassen sich folgende Variablen einfügen:
+
+| Platzhalter | Ersetzt durch |
+|---|---|
+| `{{kunde_firma}}` | Firmenname des Kunden |
+| `{{kunde_ansprechpartner}}` | Vor- und Nachname kombiniert (z. B. „Schmidt, Max") |
+| `{{kunde_vorname}}` | Nur Vorname des Kunden |
+| `{{kunde_nachname}}` | Nur Nachname des Kunden |
+| `{{kunde_ort}}` | Ort des Kunden |
+| `{{angebot_nummer}}` | Angebotsnummer (nur in Angeboten) |
+| `{{angebot_datum}}` | Angebotsdatum (nur in Angeboten) |
+| `{{rechnung_nummer}}` | Rechnungsnummer (nur in Rechnungen) |
+| `{{rechnung_datum}}` | Rechnungsdatum (nur in Rechnungen) |
+| `---seitenumbruch---` | Erzwungener Seitenumbruch im PDF |
+
+Die **E-Mail-Vorlagen** (Betreff und Text für Angebote, Rechnungen und Gutschriften) verwenden ein eigenes, kleineres Platzhalter-Set, das unabhängig vom oben genannten System funktioniert:
+
+| Platzhalter | Ersetzt durch |
+|---|---|
+| `{{nummer}}` | Dokumentnummer |
+| `{{kundenname}}` | Firmenname, sonst kombinierter Ansprechpartner |
+| `{{firma}}` | Eigener Firmenname (aus den Einstellungen) |
+| `{{datum}}` | Dokumentdatum |
+
+> **Bekannte Einschränkung:** In den E-Mail-Vorlagen stehen `{{kunde_vorname}}` und `{{kunde_nachname}}` aktuell *nicht* getrennt zur Verfügung – nur das kombinierte `{{kundenname}}`. Eine Erweiterung ist möglich, aber noch nicht umgesetzt.
+
+---
+
 ### Einstellungen
 
 Alle zentralen Parameter der Anwendung werden einmalig in den Einstellungen hinterlegt:
 
 **Firmendaten**
 
-* Firmenname, Zusatzzeilen, Adresse, Telefon, E-Mail, Website
+* Firmenname, Zusatzzeilen (z. B. Berufsbezeichnung, Registernummer), Adresse, Telefon, E-Mail, Website
 * Logo (wird in Dokumenten eingebunden)
 * Hintergrund-PDF (eigenes Briefpapier für alle Dokumente)
 
@@ -140,13 +192,13 @@ Alle zentralen Parameter der Anwendung werden einmalig in den Einstellungen hint
 
 **Standardtexte**
 
-* Vorbelegte Einleitungs- und Schlusstexte für Angebote und Rechnungen
+* Vorbelegte Einleitungs- und Schlusstexte für Angebote und Rechnungen, inklusive Platzhalter-Dropdown (siehe [Platzhalter-System](#platzhalter-system))
 * Standard-Zahlungsbedingungen
 
 **E-Mail-Vorlagen**
 
 * Separate Betreff- und Textvorlagen für Angebote, Rechnungen und Gutschriften
-* Platzhalter für Nummer, Kundenname, Firma und Datum
+* Platzhalter für Nummer, Kundenname, Firma und Datum (siehe [Platzhalter-System](#platzhalter-system))
 * Bis zu zwei Standard-Anhänge je Dokumenttyp
 
 ---
@@ -218,10 +270,13 @@ nuvio ist durch eine einfache Benutzeranmeldung geschützt. Alle Seiten der Anwe
 ```
 nuvio/
 ├── core/                    # Hauptmodul: Models, Views, Forms, URLs
-│   ├── models.py            # Datenmodell (Kunden, Artikel, Angebote, Rechnungen, Gutschriften)
+│   ├── models.py            # Datenmodell (Kunden, Artikel, Bundles, Angebote, Rechnungen, Gutschriften)
 │   ├── views.py             # Alle Ansichten und PDF-/E-Mail-Logik
 │   ├── forms.py             # Django-Formulare und Formsets
-│   └── middleware.py        # Login-Schutz für alle Seiten
+│   ├── middleware.py        # Login-Schutz für alle Seiten
+│   ├── templatetags/
+│   │   └── nuvio_filters.py # Eigene Template-Filter (Datum, Euro, Platzhalter-Ersetzung)
+│   └── migrations/          # Datenbankmigrationen
 ├── rechnungssystem/         # Django-Projektkonfiguration
 │   ├── settings.py          # Entwicklungseinstellungen
 │   ├── settings_prod.py     # Produktionseinstellungen

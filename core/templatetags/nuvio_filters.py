@@ -81,6 +81,8 @@ def platzhalter(text, objekt):
         kunde = objekt.kunde
         werte['kunde_firma'] = kunde.firma or ''
         werte['kunde_ansprechpartner'] = kunde.ansprechpartner or ''
+        werte['kunde_vorname'] = kunde.vorname or ''
+        werte['kunde_nachname'] = kunde.nachname or ''
         werte['kunde_ort'] = kunde.ort or ''
 
     if isinstance(objekt, Angebot):
@@ -88,6 +90,9 @@ def platzhalter(text, objekt):
         werte['angebot_datum'] = objekt.datum.strftime('%d.%m.%Y') if objekt.datum else ''
 
     if isinstance(objekt, Rechnung):
+        werte['rechnung_nummer'] = objekt.nummer or ''
+        werte['rechnung_datum'] = objekt.datum.strftime('%d.%m.%Y') if objekt.datum else ''
+        # Abwärtskompatibel: alte, bereits gespeicherte Rechnungstexte nutzen noch {{angebot_nummer}}/{{angebot_datum}}
         werte['angebot_nummer'] = objekt.nummer or ''
         werte['angebot_datum'] = objekt.datum.strftime('%d.%m.%Y') if objekt.datum else ''
 

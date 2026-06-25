@@ -7,7 +7,14 @@
     <a href="{% url 'angebot_bearbeiten' angebot.pk %}" class="btn btn-secondary">Bearbeiten</a>
     <a href="{% url 'angebot_pdf' angebot.pk %}" class="btn btn-gold" target="_blank">PDF erzeugen</a>
     <a href="{% url 'angebot_email' angebot.pk %}" class="btn btn-primary">✉ Per E-Mail senden</a>
+    
     {% if not angebot.rechnung_set.exists %}
+    {% if angebot.status != 'angenommen' and angebot.status != 'abgelehnt' %}
+    <form method="post" action="{% url 'angebot_annehmen' angebot.pk %}" style="display:inline; margin:0; padding:0;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success" style="height:100%;">✓ Als angenommen markieren</button>
+    </form>
+    {% endif %}
     <a href="{% url 'angebot_in_rechnung' angebot.pk %}" class="btn btn-success">→ Rechnung generieren</a>
     <a href="{% url 'angebot_loeschen' angebot.pk %}" class="btn btn-danger">Löschen</a>
     {% else %}

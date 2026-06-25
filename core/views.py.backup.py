@@ -4,14 +4,14 @@ from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
 from .models import (
-    Einstellungen, Kunde, Artikel, ArtikelBundlePosition,
+    Einstellungen, Kunde, Artikel,
     Angebot, AngebotPosition,
     Rechnung, RechnungPosition,
     Gutschrift, GutschriftPosition,
     Zahlung,
 )
 from .forms import (
-    KundeForm, ArtikelForm, ArtikelBundlePositionFormSet,
+    KundeForm, ArtikelForm,
     AngebotForm, AngebotPositionFormSet,
     RechnungForm, RechnungPositionFormSet,
     GutschriftForm, GutschriftPositionFormSet,
@@ -34,21 +34,6 @@ try:
 except ImportError:
     WEASYPRINT_VERFUEGBAR = False
 
-import base64 as _base64
-
-def _logo_data_uri(logo_field):
-    """Logo von der Festplatte lesen und als base64-Data-URI zurückgeben."""
-    if not logo_field:
-        return None
-    try:
-        with open(logo_field.path, 'rb') as f:
-            data = _base64.b64encode(f.read()).decode('utf-8')
-        ext  = logo_field.name.rsplit('.', 1)[-1].lower()
-        mime = {'jpg': 'jpeg', 'jpeg': 'jpeg', 'png': 'png',
-                'gif': 'gif', 'svg': 'svg+xml'}.get(ext, 'png')
-        return f'data:image/{mime};base64,{data}'
-    except Exception:
-        return None
 
 # ─────────────────────────────────────────────
 #  HILFSFUNKTION: PDF-Hintergrund
@@ -166,9 +151,7 @@ def kunden_liste(request):
     suche = request.GET.get('suche', '')
     kunden = Kunde.objects.all()
     if suche:
-        kunden = kunden.filter(firma__icontains=suche) \
-                | kunden.filter(nachname__icontains=suche) \
-                | kunden.filter(vorname__icontains=suche)
+        kunden = kunden.filter(firma__icontains=suche)                  | kunden.filter(nachname__icontains=suche)                  | kunden.filter(vorname__icontains=suche)
     from django.db.models.functions import NullIf
     kunden = kunden.annotate(
         sort_key=Coalesce(NullIf('firma', Value('')), 'nachname')
@@ -233,44 +216,27 @@ def artikel_liste(request):
 
 def artikel_neu(request):
     if request.method == 'POST':
-        form    = ArtikelForm(request.POST)
-        formset = ArtikelBundlePositionFormSet(request.POST, prefix='bundle')
-        if form.is_valid() and formset.is_valid():
-            artikel          = form.save()
-            formset.instance = artikel
-            formset.save()
+        form = ArtikelForm(request.POST)
+        if form.is_valid():
+            artikel = form.save()
             messages.success(request, f'Artikel „{artikel}" wurde angelegt.')
             return redirect('artikel_liste')
     else:
-        form    = ArtikelForm()
-        formset = ArtikelBundlePositionFormSet(prefix='bundle')
-    return render(request, 'artikel/formular.html', {
-        'form':    form,
-        'formset': formset,
-        'titel':   'Neuer Artikel',
-    })
+        form = ArtikelForm()
+    return render(request, 'artikel/formular.html', {'form': form, 'titel': 'Neuer Artikel'})
 
 
 def artikel_bearbeiten(request, pk):
     artikel = get_object_or_404(Artikel, pk=pk)
     if request.method == 'POST':
-        form    = ArtikelForm(request.POST, instance=artikel)
-        formset = ArtikelBundlePositionFormSet(
-            request.POST, instance=artikel, prefix='bundle'
-        )
-        if form.is_valid() and formset.is_valid():
+        form = ArtikelForm(request.POST, instance=artikel)
+        if form.is_valid():
             form.save()
-            formset.save()
             messages.success(request, f'Artikel „{artikel}" wurde gespeichert.')
             return redirect('artikel_liste')
     else:
-        form    = ArtikelForm(instance=artikel)
-        formset = ArtikelBundlePositionFormSet(instance=artikel, prefix='bundle')
-    return render(request, 'artikel/formular.html', {
-        'form':    form,
-        'formset': formset,
-        'titel':   'Artikel bearbeiten',
-    })
+        form = ArtikelForm(instance=artikel)
+    return render(request, 'artikel/formular.html', {'form': form, 'titel': 'Artikel bearbeiten'})
 
 
 def artikel_loeschen(request, pk):
@@ -308,7 +274,7 @@ def angebot_neu(request):
     AngebotPositionFormSet.extra = 1
     if request.method == 'POST':
         form = AngebotForm(request.POST)
-        formset = AngebotPositionFormSet(request.POST, prefix='positionen')
+        formset = AngebotPositionFormSet(request.POST, prefix='positionen')  # ← prefix ergänzt
         if form.is_valid() and formset.is_valid():
             angebot = form.save()
             formset.instance = angebot
@@ -321,7 +287,7 @@ def angebot_neu(request):
             'einleitungstext': einstellungen.angebot_einleitung,
             'schlusstext':     einstellungen.angebot_schlusstext,
         })
-        formset = AngebotPositionFormSet(prefix='positionen')
+        formset = AngebotPositionFormSet(prefix='positionen')  # ← prefix ergänzt
     return render(request, 'angebote/formular.html', {
         'form':    form,
         'formset': formset,
@@ -356,8 +322,7 @@ def angebot_pdf(request, pk):
     einstellungen = Einstellungen.laden()
     html = render_to_string('angebote/pdf.html', {
         'angebot': angebot,
-        'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
+        'einstellungen': einstellungen
     })
     if WEASYPRINT_VERFUEGBAR:
         base_url = request.build_absolute_uri('/')
@@ -376,6 +341,8 @@ def angebot_pdf(request, pk):
         return response
     else:
         return HttpResponse(html)
+
+
 
 
 # ─────────────────────────────────────────────
@@ -469,7 +436,6 @@ def angebot_email_senden(request, pk):
     html = render_to_string('angebote/pdf.html', {
         'angebot': angebot,
         'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
     })
     if WEASYPRINT_VERFUEGBAR:
         base_url = request.build_absolute_uri('/')
@@ -516,6 +482,7 @@ def angebot_email_senden(request, pk):
         outlook = win32com.client.Dispatch('Outlook.Application')
         mail = outlook.CreateItem(0)  # 0 = olMailItem
 
+        # Absenderkonto anhand der Firmen-E-Mail aus den Einstellungen setzen
         absender_email = (einstellungen.email or '').lower().strip()
         if absender_email:
             try:
@@ -526,6 +493,8 @@ def angebot_email_senden(request, pk):
                         break
             except Exception:
                 pass
+            # Zusätzlich SentOnBehalfOfName setzen – greift auch wenn
+            # SendUsingAccount von Outlook ignoriert wird
             try:
                 mail.SentOnBehalfOfName = einstellungen.email
             except Exception:
@@ -557,15 +526,6 @@ def angebot_in_rechnung(request, pk):
     rechnung = angebot.in_rechnung_umwandeln()
     messages.success(request, f'Rechnung „{rechnung.nummer}" wurde aus Angebot erstellt. Bitte prüfen und speichern.')
     return redirect('rechnung_bearbeiten', pk=rechnung.pk)
-
-
-def angebot_annehmen(request, pk):
-    angebot = get_object_or_404(Angebot, pk=pk)
-    if request.method == 'POST':
-        angebot.status = 'angenommen'
-        angebot.save(update_fields=['status'])
-        messages.success(request, f'Angebot „{angebot.nummer}" wurde als angenommen markiert.')
-    return redirect('angebot_detail', pk=pk)
 
 
 # ─────────────────────────────────────────────
@@ -623,7 +583,6 @@ def rechnung_email_senden(request, pk):
     html = render_to_string('rechnungen/pdf.html', {
         'rechnung': rechnung,
         'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
     })
     if WEASYPRINT_VERFUEGBAR:
         base_url = request.build_absolute_uri('/')
@@ -664,6 +623,7 @@ def rechnung_email_senden(request, pk):
         outlook = win32com.client.Dispatch('Outlook.Application')
         mail = outlook.CreateItem(0)
 
+        # Absenderkonto anhand der Firmen-E-Mail aus den Einstellungen setzen
         absender_email = (einstellungen.email or '').lower().strip()
         if absender_email:
             try:
@@ -674,6 +634,8 @@ def rechnung_email_senden(request, pk):
                         break
             except Exception:
                 pass
+            # Zusätzlich SentOnBehalfOfName setzen – greift auch wenn
+            # SendUsingAccount von Outlook ignoriert wird
             try:
                 mail.SentOnBehalfOfName = einstellungen.email
             except Exception:
@@ -755,7 +717,6 @@ def gutschrift_email_senden(request, pk):
     html = render_to_string('gutschriften/pdf.html', {
         'gutschrift': gutschrift,
         'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
     })
     if WEASYPRINT_VERFUEGBAR:
         base_url = request.build_absolute_uri('/')
@@ -794,6 +755,7 @@ def gutschrift_email_senden(request, pk):
         outlook = win32com.client.Dispatch('Outlook.Application')
         mail = outlook.CreateItem(0)
 
+        # Absenderkonto anhand der Firmen-E-Mail aus den Einstellungen setzen
         absender_email = (einstellungen.email or '').lower().strip()
         if absender_email:
             try:
@@ -804,6 +766,8 @@ def gutschrift_email_senden(request, pk):
                         break
             except Exception:
                 pass
+            # Zusätzlich SentOnBehalfOfName setzen – greift auch wenn
+            # SendUsingAccount von Outlook ignoriert wird
             try:
                 mail.SentOnBehalfOfName = einstellungen.email
             except Exception:
@@ -875,6 +839,7 @@ def rechnung_zahlungseingang(request, pk):
         betrag=form.cleaned_data['bezahlt_betrag'],
     )
 
+    # Status anhand der Gesamtsumme aller Zahlungen neu berechnen
     if rechnung.bezahlt_summe >= rechnung.brutto:
         rechnung.status = 'bezahlt'
     else:
@@ -886,6 +851,7 @@ def rechnung_zahlungseingang(request, pk):
 
 
 def rechnung_neu(request):
+    # 1 leere Position als Startpunkt
     RechnungPositionFormSet.extra = 1
     if request.method == 'POST':
         form = RechnungForm(request.POST)
@@ -910,6 +876,7 @@ def rechnung_neu(request):
 
 def rechnung_bearbeiten(request, pk):
     rechnung = get_object_or_404(Rechnung, pk=pk)
+    # Nur bestehende Positionen, keine leere Extrazeile
     RechnungPositionFormSet.extra = 0
     if request.method == 'POST':
         form = RechnungForm(request.POST, instance=rechnung)
@@ -937,12 +904,12 @@ def rechnung_pdf(request, pk):
     einstellungen = Einstellungen.laden()
     html = render_to_string('rechnungen/pdf.html', {
         'rechnung': rechnung,
-        'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
+        'einstellungen': einstellungen
     })
     if WEASYPRINT_VERFUEGBAR:
         base_url = request.build_absolute_uri('/')
         pdf = HTML(string=html, base_url=base_url).write_pdf()
+        # Zeilen VOR 'Seite': Nummer, Datum, [Fällig am], [BAFA-Nummer]
         zeilen = 2
         if rechnung.faellig_am:
             zeilen += 1
@@ -1012,29 +979,13 @@ def datensicherung(request):
 
 def artikel_daten(request, pk):
     artikel = get_object_or_404(Artikel, pk=pk)
-
-    if artikel.is_bundle:
-        positionen = []
-        for bp in artikel.bundle_positionen.select_related('artikel').all():
-            positionen.append({
-                'bezeichnung': bp.artikel.bezeichnung,
-                'beschreibung': bp.artikel.beschreibung,
-                'einheit':      bp.artikel.einheit,
-                'einzelpreis':  str(bp.artikel.einzelpreis),
-                'steuersatz':   str(bp.artikel.steuersatz),
-                'menge':        str(bp.menge),
-            })
-        return JsonResponse({'is_bundle': True, 'positionen': positionen})
-
     return JsonResponse({
-        'is_bundle':    False,
-        'bezeichnung':  artikel.bezeichnung,
+        'bezeichnung': artikel.bezeichnung,
         'beschreibung': artikel.beschreibung,
         'einheit':      artikel.einheit,
         'einzelpreis':  str(artikel.einzelpreis),
         'steuersatz':   str(artikel.steuersatz),
     })
-
 
 def angebot_loeschen(request, pk):
     angebot = get_object_or_404(Angebot, pk=pk)
@@ -1052,6 +1003,7 @@ def angebot_loeschen(request, pk):
 # ─────────────────────────────────────────────
 #  GUTSCHRIFTEN
 # ─────────────────────────────────────────────
+
 
 def gutschriften_liste(request):
     gutschriften = Gutschrift.objects.select_related('kunde', 'rechnung').all()
@@ -1119,11 +1071,11 @@ def gutschrift_pdf(request, pk):
     html = render_to_string('gutschriften/pdf.html', {
         'gutschrift': gutschrift,
         'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
     })
     if WEASYPRINT_VERFUEGBAR:
         base_url = request.build_absolute_uri('/')
         pdf = HTML(string=html, base_url=base_url).write_pdf()
+        # Zeilen VOR 'Seite': Nummer, Datum, [Zu Rechnung]
         zeilen = 2
         if gutschrift.rechnung:
             zeilen += 1

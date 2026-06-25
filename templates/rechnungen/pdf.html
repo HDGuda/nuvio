@@ -315,14 +315,18 @@
         <div class="logo-block">
           <div class="firma">{{ einstellungen.firma_name }}</div>
           <div class="adresse">
+            {% if einstellungen.firma_zusatz %}{{ einstellungen.firma_zusatz }}<br>{% endif %}
+            {% if einstellungen.firma_zusatz2 %}{{ einstellungen.firma_zusatz2 }}<br>{% endif %}
             {{ einstellungen.strasse }}<br>
             {{ einstellungen.plz }} {{ einstellungen.ort }}<br>
             {% if einstellungen.email %}{{ einstellungen.email }}{% endif %}
           </div>
         </div>
         <div class="doc-meta">
-          {% if einstellungen.logo %}
-          <img src="{{ einstellungen.logo.url }}">
+          {% if logo_data_uri %}
+            <img src="{{ logo_data_uri }}">
+          {% elif einstellungen.logo %}
+            <img src="{{ einstellungen.logo.url }}">
           {% endif %}
           <div class="doc-titel">Rechnung</div>
           <table>
@@ -331,9 +335,11 @@
             {% if rechnung.faellig_am %}
             <tr><td>Fällig am</td><td>{{ rechnung.faellig_am|datum_de }}</td></tr>
             {% endif %}
+            {% comment %}
             {% if einstellungen.firma_zusatz2 %}
             <tr><td>BAFA-Nummer</td><td><strong>{{ einstellungen.firma_zusatz2 }}</strong></td></tr>
             {% endif %}
+            {% endcomment %}
           </table>
         </div>
       </div>

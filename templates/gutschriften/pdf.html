@@ -315,13 +315,17 @@
         <div class="logo-block">
           <div class="firma">{{ einstellungen.firma_name }}</div>
           <div class="adresse">
+            {% if einstellungen.firma_zusatz %}{{ einstellungen.firma_zusatz }}<br>{% endif %}
+            {% if einstellungen.firma_zusatz2 %}{{ einstellungen.firma_zusatz2 }}<br>{% endif %}
             {{ einstellungen.strasse }}<br>
             {{ einstellungen.plz }} {{ einstellungen.ort }}<br>
             {% if einstellungen.email %}{{ einstellungen.email }}{% endif %}
           </div>
         </div>
         <div class="doc-meta">
-          {% if einstellungen.logo %}
+          {% if logo_data_uri %}
+          <img src="{{ logo_data_uri }}">
+          {% elif einstellungen.logo %}
           <img src="{{ einstellungen.logo.url }}">
           {% endif %}
           <div class="doc-titel">Gutschrift</div>

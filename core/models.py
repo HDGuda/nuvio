@@ -261,6 +261,12 @@ class Artikel(models.Model):
                                 verbose_name='Steuersatz'
                               )
     aktiv                   = models.BooleanField(default=True, verbose_name='Aktiv')
+    is_bundle               = models.BooleanField(
+                                default=False,
+                                verbose_name='Bundle (Paketartikel)',
+                                help_text='Wenn aktiv, werden beim Einfügen in ein Angebot automatisch '
+                                          'alle Einzelartikel dieses Bundles eingefügt.'
+                              )
 
     class Meta:
         verbose_name = 'Artikel'
@@ -269,6 +275,40 @@ class Artikel(models.Model):
 
     def __str__(self):
         return f'{self.bezeichnung} ({self.einzelpreis} €)'
+
+
+# ─────────────────────────────────────────────
+#  ARTIKEL-BUNDLE-POSITIONEN
+# ─────────────────────────────────────────────
+
+class ArtikelBundlePosition(models.Model):
+    bundle      = models.ForeignKey(
+                    Artikel,
+                    on_delete=models.CASCADE,
+                    related_name='bundle_positionen',
+                    verbose_name='Bundle-Artikel'
+                  )
+    artikel     = models.ForeignKey(
+                    Artikel,
+                    on_delete=models.CASCADE,
+                    related_name='in_bundles',
+                    limit_choices_to={'aktiv': True, 'is_bundle': False},
+                    verbose_name='Einzelartikel'
+                  )
+    menge       = models.DecimalField(
+                    max_digits=10, decimal_places=2,
+                    default=1,
+                    verbose_name='Menge'
+                  )
+    reihenfolge = models.PositiveIntegerField(default=0, verbose_name='Reihenfolge')
+
+    class Meta:
+        verbose_name        = 'Bundle-Position'
+        verbose_name_plural = 'Bundle-Positionen'
+        ordering            = ['reihenfolge']
+
+    def __str__(self):
+        return f'{self.menge} × {self.artikel.bezeichnung}'
 
 
 # ─────────────────────────────────────────────
@@ -458,34 +498,23 @@ class Rechnung(models.Model):
     # Kopfdaten
     nummer                  = models.CharField(max_length=50, unique=True, verbose_name='Rechnungsnummer')
     kunde                   = models.ForeignKey(Kunde, on_delete=models.PROTECT, verbose_name='Kunde')
-    datum                   = models.DateField(default=timezone.now, verbose_name='Rechnungsdatum')
+    datum                   = models.DateField(default=timezone.now, verbose_name='Datum')
     faellig_am              = models.DateField(null=True, blank=True, verbose_name='Fällig am')
-    bezahlt_am              = models.DateField(null=True, blank=True, verbose_name='Bezahlt am')
-    bezahlt_betrag          = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True, verbose_name='Bezahlter Betrag')
     status                  = models.CharField(max_length=20, choices=STATUS_CHOICES, default='entwurf', verbose_name='Status')
     betreff                 = models.CharField(max_length=300, blank=True, verbose_name='Betreff')
-
-    # Verknüpfung mit Angebot (optional)
     angebot                 = models.ForeignKey(
                                 Angebot,
                                 null=True, blank=True,
                                 on_delete=models.SET_NULL,
-                                verbose_name='Aus Angebot erstellt'
+                                related_name='rechnungen',
+                                verbose_name='Ursprungsangebot'
                               )
 
-    # Texte (manuell veränderbar)
+    # Texte
     einleitungstext         = models.TextField(blank=True, verbose_name='Einleitungstext')
     schlusstext             = models.TextField(blank=True, verbose_name='Schlusstext')
     zahlungsbedingungen     = models.TextField(blank=True, verbose_name='Zahlungsbedingungen')
-    interne_notizen         = models.TextField(blank=True, verbose_name='Interne Notizen (erscheint nicht im PDF)')
-
-    # Vorlage
-    vorlage                 = models.ForeignKey(
-                                Vorlage,
-                                null=True, blank=True,
-                                on_delete=models.SET_NULL,
-                                verbose_name='Vorlage'
-                              )
+    interne_notizen         = models.TextField(blank=True, verbose_name='Interne Notizen')
 
     # Metadaten
     erstellt_am             = models.DateTimeField(auto_now_add=True)
@@ -501,10 +530,8 @@ class Rechnung(models.Model):
         return f'{self.nummer} – {self.kunde}'
 
     def save(self, *args, **kwargs):
-        # Automatische Nummernvergabe beim ersten Speichern
         if not self.nummer:
             self.nummer = Einstellungen.laden().naechste_rechnungsnummer()
-        # Standardtexte aus Einstellungen übernehmen, falls leer
         if not self.einleitungstext:
             self.einleitungstext = Einstellungen.laden().rechnung_einleitung
         if not self.schlusstext:
@@ -512,8 +539,6 @@ class Rechnung(models.Model):
         if not self.zahlungsbedingungen:
             self.zahlungsbedingungen = Einstellungen.laden().zahlungsbedingungen
         super().save(*args, **kwargs)
-
-    # ── Berechnungen ──
 
     @property
     def netto(self):
@@ -525,27 +550,24 @@ class Rechnung(models.Model):
 
     @property
     def brutto(self):
-        return round(self.netto + self.mwst_gesamt, 2)
+        return round(sum(p.gesamtpreis_brutto for p in self.positionen.all()), 2)
 
     @property
     def bezahlt_summe(self):
-        """Summe aller gespeicherten Teilzahlungen."""
         return round(sum(z.betrag for z in self.zahlungen.all()), 2)
 
     @property
     def gutschrift_summe(self):
-        """Summe aller Gutschriften zu dieser Rechnung."""
-        return round(sum(g.brutto for g in self.gutschriften.all()), 2)
+        gutschriften = self.gutschriften.exclude(status='storniert')
+        return round(sum(g.brutto for g in gutschriften), 2)
 
     @property
     def offener_betrag(self):
-        """Brutto abzüglich Gutschriften und aller Teilzahlungen."""
-        return round(self.brutto - self.gutschrift_summe - self.bezahlt_summe, 2)
+        return round(self.brutto - self.bezahlt_summe - self.gutschrift_summe, 2)
 
     def gutschrift_status_aktualisieren(self):
-        gutschriften = self.gutschriften.all()
+        gutschriften = self.gutschriften.exclude(status='storniert')
         if not gutschriften.exists():
-            # Keine Gutschriften mehr → zurück auf gesendet wenn nicht bezahlt
             if self.status in ('storniert', 'teilgutgeschrieben'):
                 self.status = 'gesendet'
                 self.save(update_fields=['status'])

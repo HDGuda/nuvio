@@ -26,6 +26,7 @@ urlpatterns = [
     path('angebote/<int:pk>/pdf/', views.angebot_pdf, name='angebot_pdf'),
     path('angebote/<int:pk>/email/', views.angebot_email, name='angebot_email'),
     path('angebote/<int:pk>/email/senden/', views.angebot_email_senden, name='angebot_email_senden'),
+    path('angebote/<int:pk>/annehmen/', views.angebot_annehmen, name='angebot_annehmen'),
     path('angebote/<int:pk>/in-rechnung/', views.angebot_in_rechnung, name='angebot_in_rechnung'),
 
     # Rechnungen

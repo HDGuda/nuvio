@@ -1,9 +1,10 @@
 from django import forms
 from django.forms import inlineformset_factory
 from .models import (
-    Einstellungen, Kunde, Artikel,
+    Einstellungen, Kunde, Artikel, ArtikelBundlePosition,
     Angebot, AngebotPosition,
-    Rechnung, RechnungPosition
+    Rechnung, RechnungPosition,
+    Gutschrift, GutschriftPosition,
 )
 
 
@@ -120,19 +121,66 @@ class ArtikelForm(forms.ModelForm):
         fields = [
             'bezeichnung', 'beschreibung',
             'einheit', 'einzelpreis', 'steuersatz',
-            'aktiv',
+            'aktiv', 'is_bundle',
         ]
         widgets = {
             'beschreibung': forms.Textarea(attrs={'rows': 4}),
             'einzelpreis':  forms.NumberInput(attrs={'step': '0.01', 'placeholder': 'Bruttopreis inkl. MwSt.'}),
         }
+        help_texts = {
+            'is_bundle': 'Bundle-Artikel haben keinen eigenen Preis – stattdessen werden beim Einfügen '
+                         'in ein Angebot die Einzelartikel unten automatisch eingefügt.',
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['einzelpreis'].required = False
         if self.instance.pk:
             self.initial['steuersatz'] = float(self.instance.steuersatz)
         else:
             self.fields['steuersatz'].initial = 19.00
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_bundle   = cleaned_data.get('is_bundle')
+        einzelpreis = cleaned_data.get('einzelpreis')
+        if is_bundle:
+            cleaned_data['einzelpreis'] = 0
+        elif einzelpreis is None:
+            self.add_error('einzelpreis', 'Bitte einen Bruttopreis eingeben.')
+        return cleaned_data
+
+
+# ─────────────────────────────────────────────
+#  ARTIKEL-BUNDLE
+# ─────────────────────────────────────────────
+
+class ArtikelBundlePositionForm(forms.ModelForm):
+    class Meta:
+        model  = ArtikelBundlePosition
+        fields = ['reihenfolge', 'artikel', 'menge']
+        widgets = {
+            'reihenfolge': forms.NumberInput(attrs={'style': 'width: 55px;'}),
+            'menge':       forms.NumberInput(attrs={'step': '0.01', 'style': 'width: 80px;'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Nur aktive Nicht-Bundle-Artikel als Auswahl anbieten
+        self.fields['artikel'].queryset = Artikel.objects.filter(
+            aktiv=True, is_bundle=False
+        ).order_by('bezeichnung')
+        self.fields['artikel'].label = 'Einzelartikel'
+
+
+ArtikelBundlePositionFormSet = inlineformset_factory(
+    Artikel,
+    ArtikelBundlePosition,
+    form=ArtikelBundlePositionForm,
+    fk_name='bundle',
+    extra=1,
+    can_delete=True,
+)
 
 
 # ─────────────────────────────────────────────
@@ -359,8 +407,6 @@ RechnungPositionFormSet = inlineformset_factory(
 # ─────────────────────────────────────────────
 #  GUTSCHRIFT
 # ─────────────────────────────────────────────
-
-from .models import Gutschrift, GutschriftPosition
 
 class GutschriftForm(forms.ModelForm):
     class Meta:

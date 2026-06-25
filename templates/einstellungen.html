@@ -161,6 +161,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <option value="">Platzhalter einfügen…</option>
                         <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
                     <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                    <option value="&#123;&#123;kunde_vorname&#125;&#125;">Kunde: Vorname</option>
+                    <option value="&#123;&#123;kunde_nachname&#125;&#125;">Kunde: Nachname</option>
                     <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
                     <option value="&#123;&#123;angebot_nummer&#125;&#125;">Angebotsnummer</option>
                     <option value="&#123;&#123;angebot_datum&#125;&#125;">Angebotsdatum</option>
@@ -181,6 +183,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         <option value="">Platzhalter einfügen…</option>
                         <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
                     <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                    <option value="&#123;&#123;kunde_vorname&#125;&#125;">Kunde: Vorname</option>
+                    <option value="&#123;&#123;kunde_nachname&#125;&#125;">Kunde: Nachname</option>
                     <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
                     <option value="&#123;&#123;angebot_nummer&#125;&#125;">Angebotsnummer</option>
                     <option value="&#123;&#123;angebot_datum&#125;&#125;">Angebotsdatum</option>
@@ -208,9 +212,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         <option value="">Platzhalter einfügen…</option>
                         <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
                     <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                    <option value="&#123;&#123;kunde_vorname&#125;&#125;">Kunde: Vorname</option>
+                    <option value="&#123;&#123;kunde_nachname&#125;&#125;">Kunde: Nachname</option>
                     <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
-                    <option value="&#123;&#123;angebot_nummer&#125;&#125;">Rechnungsnummer</option>
-                    <option value="&#123;&#123;angebot_datum&#125;&#125;">Rechnungsdatum</option>
+                    <option value="&#123;&#123;rechnung_nummer&#125;&#125;">Rechnungsnummer</option>
+                    <option value="&#123;&#123;rechnung_datum&#125;&#125;">Rechnungsdatum</option>
                     </select>
                 </div>
                 <div id="editor-rechnung-einleitung" class="editor-box" contenteditable="true"></div>
@@ -228,9 +234,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         <option value="">Platzhalter einfügen…</option>
                         <option value="&#123;&#123;kunde_firma&#125;&#125;">Kunde: Firma</option>
                     <option value="&#123;&#123;kunde_ansprechpartner&#125;&#125;">Kunde: Ansprechpartner</option>
+                    <option value="&#123;&#123;kunde_vorname&#125;&#125;">Kunde: Vorname</option>
+                    <option value="&#123;&#123;kunde_nachname&#125;&#125;">Kunde: Nachname</option>
                     <option value="&#123;&#123;kunde_ort&#125;&#125;">Kunde: Ort</option>
-                    <option value="&#123;&#123;angebot_nummer&#125;&#125;">Rechnungsnummer</option>
-                    <option value="&#123;&#123;angebot_datum&#125;&#125;">Rechnungsdatum</option>
+                    <option value="&#123;&#123;rechnung_nummer&#125;&#125;">Rechnungsnummer</option>
+                    <option value="&#123;&#123;rechnung_datum&#125;&#125;">Rechnungsdatum</option>
                     </select>
                 </div>
                 <div id="editor-rechnung-schluss" class="editor-box" contenteditable="true"></div>
@@ -259,7 +267,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <label>Betreff-Vorlage</label>
             {{ form.email_angebot_betreff }}
             <div class="text-grau text-klein" style="margin-top: 4px;">
-                Platzhalter: <code>{{nummer}}</code>, <code>{{kundenname}}</code>, <code>{{firma}}</code>, <code>{{datum}}</code>
+                Platzhalter: <code>&#123;&#123;nummer&#125;&#125;</code>, <code>&#123;&#123;kundenname&#125;&#125;</code>, <code>&#123;&#123;firma&#125;&#125;</code>, <code>&#123;&#123;datum&#125;&#125;</code>
             </div>
         </div>
         <div class="form-gruppe">
@@ -306,8 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <label>Betreff-Vorlage</label>
             {{ form.email_rechnung_betreff }}
             <div class="text-grau text-klein" style="margin-top: 4px;">
-                Platzhalter: <code>{{nummer}}</code>, <code>{{kundenname}}</code>, <code>{{firma}}</code>, <code>{{datum}}</code>
-            </div>
+            Platzhalter: <code>&#123;&#123;nummer&#125;&#125;</code>, <code>&#123;&#123;kundenname&#125;&#125;</code>, <code>&#123;&#123;firma&#125;&#125;</code>, <code>&#123;&#123;datum&#125;&#125;</code>            </div>
         </div>
         <div class="form-gruppe">
             <label>E-Mail-Text</label>
@@ -353,7 +360,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <label>Betreff-Vorlage</label>
             {{ form.email_gutschrift_betreff }}
             <div class="text-grau text-klein" style="margin-top: 4px;">
-                Platzhalter: <code>{{nummer}}</code>, <code>{{kundenname}}</code>, <code>{{firma}}</code>, <code>{{datum}}</code>
+                Platzhalter: <code>&#123;&#123;nummer&#125;&#125;</code>, <code>&#123;&#123;kundenname&#125;&#125;</code>, <code>&#123;&#123;firma&#125;&#125;</code>, <code>&#123;&#123;datum&#125;&#125;</code>
             </div>
         </div>
         <div class="form-gruppe">
