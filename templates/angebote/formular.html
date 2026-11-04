@@ -105,17 +105,22 @@
         <div class="card-titel">Positionen</div>
         <button type="button" class="btn btn-secondary" onclick="positionHinzufuegen()" style="font-size:12px; padding:6px 12px;">+ Position hinzufügen</button>
     </div>
+    {% if kleinunternehmer %}
+    <div style="padding: 10px 16px; font-size: 12px; color: #666; background: #f8f7f4; border-bottom: 1px solid #eee;">
+        Kleinunternehmer (§&nbsp;19&nbsp;UStG): Die Preise sind Endpreise, es wird keine Umsatzsteuer berechnet oder ausgewiesen.
+    </div>
+    {% endif %}
     <div class="card-body" style="padding: 0;">
         {{ formset.management_form }}
         <div class="tabelle-container">
-        <table class="tabelle" id="positionen-tabelle">
+        <table class="tabelle{% if kleinunternehmer %} ku{% endif %}" id="positionen-tabelle">
             <thead>
                 <tr>
                     <th style="width:150px;">Aus Artikelstamm</th>
                     <th>Bezeichnung<br><span style="font-weight:400; font-size:10px;">Beschreibung</span></th>
                     <th style="width:54px;">Menge</th>
                     <th style="width:80px;">Einheit</th>
-                    <th style="width:56px;">Brutto-<br>Einzelpreis</th>
+                    <th style="width:56px;">{% if kleinunternehmer %}Einzel-<br>preis{% else %}Brutto-<br>Einzelpreis{% endif %}</th>
                     <th style="width:84px;">MwSt. %</th>
                     <th style="width:36px;"></th>
                 </tr>
@@ -163,6 +168,9 @@
     }
     #positionen-tabelle textarea { height: 96px; resize: vertical; }
     #positionen-tabelle td, #positionen-tabelle th { padding: 6px 4px; }
+    /* Kleinunternehmer: MwSt.-Spalte ausblenden (Werte werden weiterhin mitgesendet, haben aber keine Wirkung) */
+    #positionen-tabelle.ku thead th:nth-child(6),
+    #positionen-tabelle.ku tbody td:nth-child(7) { display: none; }
 </style>
 
 <script>

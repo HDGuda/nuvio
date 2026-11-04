@@ -89,6 +89,15 @@ document.addEventListener('DOMContentLoaded', function() {
         <div class="card-body">
             <div class="form-gruppe"><label>Steuernummer</label>{{ form.steuernummer }}</div>
             <div class="form-gruppe"><label>USt-IdNr.</label>{{ form.ust_id }}</div>
+            <div class="form-gruppe">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    {{ form.kleinunternehmer }} Kleinunternehmer (§&nbsp;19&nbsp;UStG)
+                </label>
+                <div class="text-grau text-klein" style="margin-top: 4px;">
+                    Aktiv: Es wird keine Umsatzsteuer berechnet oder ausgewiesen, auf Angeboten, Rechnungen und Gutschriften erscheint der Kleinunternehmer-Hinweis.
+                    Gilt nur für neu angelegte Dokumente – bestehende behalten den Stand, mit dem sie erstellt wurden.
+                </div>
+            </div>
         </div>
     </div>
     <div class="card">

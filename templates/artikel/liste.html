@@ -9,6 +9,44 @@
 
 {% block inhalt %}
 
+<style>
+    .bundle-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px;
+        height: 26px;
+        margin-right: 8px;
+        padding: 0;
+        vertical-align: middle;
+        font-size: 16px;
+        line-height: 1;
+        color: var(--navy);
+        background: var(--gold-light);
+        border: 1px solid var(--gold);
+        border-radius: 6px;
+        cursor: pointer;
+        transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
+    }
+    .bundle-toggle:hover {
+        background: var(--gold);
+        color: #fff;
+    }
+    .bundle-toggle[aria-expanded="true"] {
+        transform: rotate(90deg);
+        background: var(--gold);
+        color: #fff;
+    }
+    .bundle-toggle-platz { display: inline-block; width: 34px; }
+
+    .bundle-kind td { background: #faf9f6; font-size: 13px; }
+    .bundle-kind td:first-child { padding-left: 52px; }
+    .bundle-kind .menge { color: var(--text-mid); margin-right: 4px; }
+    .tabelle tbody.artikel-gruppe + tbody.artikel-gruppe td {
+        border-top: 2px solid #c2bdb3;
+    }
+</style>
+
 <div class="card">
     <div class="card-header">
         <div class="card-titel">Alle Artikel ({{ artikel|length }})</div>
@@ -26,10 +64,22 @@
                     <th>Aktionen</th>
                 </tr>
             </thead>
-            <tbody>
-                {% for a in artikel %}
+            
+            {% for a in artikel %}
+              <tbody class="artikel-gruppe">
                 <tr>
-                    <td><strong>{{ a.bezeichnung }}</strong></td>
+                    <td>
+                        {% if a.is_bundle %}
+                            {% if a.bundle_positionen.all %}
+                            <button type="button" class="bundle-toggle" aria-expanded="false"
+                                    data-ziel="bundle-{{ a.pk }}" title="Unter-Artikel ein-/ausklappen">▸</button>
+                            {% else %}
+                            <span class="bundle-toggle-platz"></span>
+                            {% endif %}
+                        {% endif %}
+                        <strong>{{ a.bezeichnung }}</strong>
+                        {% if a.is_bundle %}<span class="badge badge-entwurf" style="margin-left: 6px;">Bundle</span>{% endif %}
+                    </td>
                     <td class="text-grau">{{ a.beschreibung|default:"–" }}</td>
                     <td>{{ a.einheit }}</td>
                     <td class="text-rechts">{{ a.einzelpreis }} €</td>
@@ -41,8 +91,21 @@
                         </div>
                     </td>
                 </tr>
-                {% endfor %}
-            </tbody>
+                {% if a.is_bundle %}
+                    {% for bp in a.bundle_positionen.all %}
+                    <tr class="bundle-kind bundle-{{ a.pk }}" hidden>
+                        <td><span class="menge">{{ bp.menge|floatformat:"-2" }} ×</span>{{ bp.artikel.bezeichnung }}</td>
+                        <td class="text-grau">{{ bp.artikel.beschreibung|default:"–" }}</td>
+                        <td>{{ bp.artikel.einheit }}</td>
+                        <td class="text-rechts">{{ bp.artikel.einzelpreis }} €</td>
+                        <td class="text-rechts">{{ bp.artikel.steuersatz }} %</td>
+                        <td></td>
+                    </tr>
+                    {% endfor %}
+                {% endif %}
+                </tbody>
+            {% endfor %}
+            
         </table>
         {% else %}
         <div style="padding: 40px; text-align: center; color: #999;">
@@ -51,5 +114,17 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+    document.querySelectorAll('.bundle-toggle').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var offen = btn.getAttribute('aria-expanded') === 'true';
+            document.querySelectorAll('.' + btn.dataset.ziel).forEach(function (zeile) {
+                zeile.hidden = offen;
+            });
+            btn.setAttribute('aria-expanded', offen ? 'false' : 'true');
+        });
+    });
+</script>
 
 {% endblock %}

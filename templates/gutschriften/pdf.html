@@ -17,7 +17,7 @@
     @page {
         size: A4;
         margin-top: 20mm;
-        margin-bottom: 10mm;
+        margin-bottom: {% if einstellungen.hintergrund_pdf %}28mm{% else %}10mm{% endif %};
         margin-left: 20mm;
         margin-right: 20mm;
         background: transparent;
@@ -35,6 +35,9 @@
         padding: 0;
         border: none;
         vertical-align: top;
+    }
+    table.seite > thead > tr > td {
+        padding-bottom: 4mm;
     }
 
     /* ── KOPFZEILE ── */
@@ -197,6 +200,8 @@
 
     table.positionen tbody tr:last-child {
         border-bottom: none;
+        break-after: avoid;
+        page-break-after: avoid;
     }
 
     table.positionen tbody td {
@@ -225,11 +230,12 @@
 
     /* ── SUMMEN ── */
     table.positionen tfoot {
-        page-break-inside: avoid;
+        display: table-row-group;   /* nicht auf jeder Seite wiederholen */
+        break-inside: avoid;
     }
 
     table.positionen tfoot tr td {
-        padding: 6px 10px;
+        padding: 3px 10px;
         border: none;
         background: none;
         font-size: 11px;
@@ -247,13 +253,16 @@
     }
 
     table.positionen tfoot tr.summen-netto td {
-        padding-top: 12px;
+        padding-top: 8px;
     }
 
     table.positionen tfoot tr.summen-mwst td {
         color: #888;
         font-size: 10px;
-        padding-bottom: 8px;
+    }
+
+    table.positionen tfoot tr.summen-mwst.letzte td {
+        padding-bottom: 5px;
         border-bottom: 1px solid #bbb;
     }
 
@@ -261,7 +270,19 @@
         font-size: 15px;
         color: #1a1a2e;
         font-weight: 700;
-        padding-top: 8px;
+        padding-top: 5px;
+    }
+
+    /* ── KLEINUNTERNEHMER ── */
+    table.positionen tfoot tr.summen-brutto.ku {
+        border-top: 2px solid #1a1a2e;
+    }
+
+    .ku-hinweis {
+        margin-top: 14px;
+        font-size: 11px;
+        color: #555;
+        line-height: 1.5;
     }
 
     /* ── SCHLUSSTEXT ── */
@@ -414,8 +435,8 @@
             <th>Pos. &amp; Beschreibung</th>
             <th>Menge</th>
             <th>Einheit</th>
-            <th>Einzelpreis netto</th>
-            <th>Gesamtpreis netto</th>
+            <th>Einzelpreis{% if not gutschrift.kleinunternehmer %} netto{% endif %}</th>
+            <th>Gesamtpreis{% if not gutschrift.kleinunternehmer %} netto{% endif %}</th>
           </tr>
         </thead>
         <tbody>
@@ -429,29 +450,43 @@
             </td>
             <td>{{ position.menge|menge }}</td>
             <td>{{ position.einheit }}</td>
+            {% if gutschrift.kleinunternehmer %}
+            <td>{{ position.einzelpreis|euro }} €</td>
+            <td>{{ position.gesamtpreis_brutto|euro }} €</td>
+            {% else %}
             <td>{{ position.einzelpreis_netto|euro }} €</td>
             <td>{{ position.gesamtpreis_netto|euro }} €</td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
         <tfoot>
+          {% if not gutschrift.kleinunternehmer %}
           <tr class="summen-netto">
             <td colspan="3"></td>
             <td>Nettobetrag</td>
             <td>{{ gutschrift.netto|euro }} €</td>
           </tr>
-          <tr class="summen-mwst">
-            <td colspan="3"></td>
-            <td>zzgl. MwSt.</td>
-            <td>{{ gutschrift.mwst_gesamt|euro }} €</td>
+          {% with gruppen=gutschrift.steuergruppen %}
+          {% for g in gruppen %}
+          <tr class="summen-mwst{% if forloop.last %} letzte{% endif %}">
+            <td colspan="4" style="text-align:right">zzgl. {{ g.satz|prozent }} % MwSt.{% if gruppen|length > 1 %} auf {{ g.netto|euro }} €{% endif %}</td>
+            <td>{{ g.mwst|euro }} €</td>
           </tr>
-          <tr class="summen-brutto">
+          {% endfor %}
+          {% endwith %}
+          {% endif %}
+          <tr class="summen-brutto{% if gutschrift.kleinunternehmer %} ku{% endif %}">
             <td colspan="3"></td>
             <td>Gutschriftbetrag</td>
             <td>{{ gutschrift.brutto|euro }} €</td>
           </tr>
         </tfoot>
       </table>
+
+      {% if gutschrift.kleinunternehmer %}
+      <div class="ku-hinweis">Der Auftragnehmer ist Kleinunternehmer im Sinne des § 19 UStG und stellt daher keine Umsatzsteuer in Rechnung.</div>
+      {% endif %}
 
       <!-- SCHLUSSTEXT -->
       {% if gutschrift.schlusstext %}

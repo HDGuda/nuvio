@@ -26,13 +26,13 @@
                 <tr><td style="color: #999; padding: 6px 0;">Kunde</td><td><a href="{% url 'kunde_detail' rechnung.kunde.pk %}">{{ rechnung.kunde }}</a></td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Datum</td><td>{{ rechnung.datum|date:"d.m.Y" }}</td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Fällig am</td><td>{{ rechnung.faellig_am|date:"d.m.Y"|default:"–" }}</td></tr>
-                <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ rechnung.status }}"></span>{{ rechnung.get_status_display }}</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ rechnung.status }}">{{ rechnung.get_status_display }}</span></td></tr>
+                {% if rechnung.kleinunternehmer %}
+                <tr><td style="color: #999; padding: 6px 0;">Steuer</td><td>Kleinunternehmer (§&nbsp;19&nbsp;UStG)</td></tr>
+                {% endif %}
                 <tr><td style="color: #999; padding: 6px 0;">Betreff</td><td>{{ rechnung.betreff|default:"–" }}</td></tr>
                 {% if rechnung.gesendet_am %}
                 <tr><td style="color: #999; padding: 6px 0;">Gesendet am</td><td>{{ rechnung.gesendet_am|date:"d.m.Y" }}</td></tr>
-                {% endif %}
-                {% if rechnung.bezahlt_am and rechnung.status == "bezahlt" %}
-                <tr><td style="color: #999; padding: 6px 0;">Bezahlt am</td><td>{{ rechnung.bezahlt_am|date:"d.m.Y" }}</td></tr>
                 {% endif %}
                 {% if rechnung.angebot %}
                 <tr><td style="color: #999; padding: 6px 0;">Aus Angebot</td><td><a href="{% url 'angebot_detail' rechnung.angebot.pk %}">{{ rechnung.angebot.nummer }}</a></td></tr>
@@ -47,13 +47,22 @@
         </div>
         <div class="card-body">
             <table style="width: 100%; font-size: 14px;">
+                {% if not rechnung.kleinunternehmer %}
                 <tr><td style="color: #999; padding: 6px 0;">Nettobetrag</td><td class="text-rechts">{{ rechnung.netto|euro }} €</td></tr>
-                <tr><td style="color: #999; padding: 6px 0;">MwSt.</td><td class="text-rechts">{{ rechnung.mwst_gesamt|euro }} €</td></tr>
+                {% with gruppen=rechnung.steuergruppen %}
+                {% for g in gruppen %}
+                <tr><td style="color: #999; padding: 6px 0;">zzgl. {{ g.satz|prozent }} % MwSt.{% if gruppen|length > 1 %} auf {{ g.netto|euro }} €{% endif %}</td><td class="text-rechts">{{ g.mwst|euro }} €</td></tr>
+                {% endfor %}
+                {% endwith %}
+                {% endif %}
                 <tr style="border-top: 2px solid #1a1a2e;">
                     <td style="padding: 10px 0;"><strong>Gesamtbetrag</strong></td>
                     <td class="text-rechts"><strong style="font-size: 18px;">{{ rechnung.brutto|euro }} €</strong></td>
                 </tr>
             </table>
+            {% if rechnung.kleinunternehmer %}
+            <div class="text-grau text-klein" style="margin-top: 10px;">Kleinunternehmer gemäß § 19 UStG: Es wird keine Umsatzsteuer berechnet oder ausgewiesen.</div>
+            {% endif %}
         </div>
     </div>
 
@@ -72,9 +81,14 @@
                     <th>Bezeichnung</th>
                     <th>Menge</th>
                     <th>Einheit</th>
+                    {% if rechnung.kleinunternehmer %}
+                    <th class="text-rechts">Einzelpreis</th>
+                    <th class="text-rechts">Gesamt</th>
+                    {% else %}
                     <th class="text-rechts">Netto-<br>Einzelpreis</th>
                     <th class="text-rechts">MwSt.</th>
                     <th class="text-rechts">Gesamt brutto</th>
+                    {% endif %}
                 </tr>
             </thead>
             <tbody>
@@ -89,9 +103,14 @@
                     </td>
                     <td>{{ position.menge|euro }}</td>
                     <td>{{ position.einheit }}</td>
+                    {% if rechnung.kleinunternehmer %}
+                    <td class="text-rechts">{{ position.einzelpreis|euro }} €</td>
+                    <td class="text-rechts"><strong>{{ position.gesamtpreis_brutto|euro }} €</strong></td>
+                    {% else %}
                     <td class="text-rechts">{{ position.einzelpreis_netto|euro }} €</td>
                     <td class="text-rechts">{{ position.steuersatz|prozent }} %</td>
                     <td class="text-rechts"><strong>{{ position.gesamtpreis_brutto|euro }} €</strong></td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>

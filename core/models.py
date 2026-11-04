@@ -1,6 +1,75 @@
 from django.db import models
 from django.utils import timezone
 import datetime
+from decimal import Decimal, ROUND_HALF_UP
+
+
+# ─────────────────────────────────────────────
+#  SUMMENBERECHNUNG (gemeinsam für Angebot, Rechnung, Gutschrift)
+# ─────────────────────────────────────────────
+
+CENT = Decimal('0.01')
+
+
+def steuergruppen_berechnen(positionen, kleinunternehmer=False):
+    """
+    Gruppiert Positionen nach Steuersatz (absteigend) und liefert je Satz
+    {'satz', 'brutto', 'netto', 'mwst'}.
+
+    Preise werden in nuvio brutto erfasst. Deshalb wird je Steuersatz die
+    Brutto-Summe gebildet und daraus Netto und Steuer herausgerechnet
+    (einmal gerundet, nicht je Position). Die Steuer ist die Differenz,
+    dadurch gilt immer netto + mwst == brutto, und der Bruttobetrag bleibt
+    exakt der erfasste Betrag.
+
+    Kleinunternehmer (§ 19 UStG): Es wird keine Umsatzsteuer berechnet, alle
+    Positionen zählen mit Steuersatz 0. Der erfasste Preis ist der
+    Rechnungsbetrag, netto == brutto und mwst == 0.
+    """
+    brutto_je_satz = {}
+    for p in positionen:
+        satz = Decimal('0') if kleinunternehmer else Decimal(str(p.steuersatz))
+        brutto_je_satz[satz] = brutto_je_satz.get(satz, Decimal('0')) + p.gesamtpreis_brutto
+
+    gruppen = []
+    for satz in sorted(brutto_je_satz, reverse=True):
+        brutto = brutto_je_satz[satz]
+        netto = (brutto / (1 + satz / 100)).quantize(CENT, rounding=ROUND_HALF_UP)
+        gruppen.append({
+            'satz':   satz,
+            'brutto': brutto,
+            'netto':  netto,
+            'mwst':   brutto - netto,
+        })
+    return gruppen
+
+
+class SummenMixin:
+    """
+    Gemeinsame Summenberechnung für Angebot, Rechnung und Gutschrift
+    (erwartet die Relation `positionen` mit gesamtpreis_brutto und steuersatz
+    sowie das Feld `kleinunternehmer`, das beim Anlegen des Dokuments aus den
+    Einstellungen festgehalten wird).
+    """
+
+    @property
+    def steuergruppen(self):
+        return steuergruppen_berechnen(
+            self.positionen.all(),
+            kleinunternehmer=self.kleinunternehmer,
+        )
+
+    @property
+    def netto(self):
+        return sum((g['netto'] for g in self.steuergruppen), Decimal('0.00'))
+
+    @property
+    def mwst_gesamt(self):
+        return sum((g['mwst'] for g in self.steuergruppen), Decimal('0.00'))
+
+    @property
+    def brutto(self):
+        return sum((g['brutto'] for g in self.steuergruppen), Decimal('0.00'))
 
 
 # ─────────────────────────────────────────────
@@ -24,6 +93,12 @@ class Einstellungen(models.Model):
     # Steuer
     steuernummer            = models.CharField(max_length=50, blank=True, verbose_name='Steuernummer')
     ust_id                  = models.CharField(max_length=50, blank=True, verbose_name='USt-IdNr.')
+    kleinunternehmer        = models.BooleanField(
+                                default=False,
+                                verbose_name='Kleinunternehmer (§ 19 UStG)',
+                                help_text='Aktiv: Es wird keine Umsatzsteuer berechnet oder ausgewiesen. '
+                                          'Auf Angeboten, Rechnungen und Gutschriften erscheint der Kleinunternehmer-Hinweis.'
+                              )
 
     # Bankverbindung
     bank_name               = models.CharField(max_length=100, blank=True, verbose_name='Bank')
@@ -346,7 +421,7 @@ class Vorlage(models.Model):
 #  ANGEBOT
 # ─────────────────────────────────────────────
 
-class Angebot(models.Model):
+class Angebot(SummenMixin, models.Model):
     STATUS_CHOICES = [
         ('entwurf',    'Entwurf'),
         ('gesendet',   'Gesendet'),
@@ -376,6 +451,13 @@ class Angebot(models.Model):
                                 verbose_name='Vorlage'
                               )
 
+    # Kleinunternehmer-Status: wird beim Anlegen aus den Einstellungen festgehalten
+    # und ändert sich danach nicht mehr (spätere Umstellung wirkt nur auf neue Dokumente)
+    kleinunternehmer        = models.BooleanField(
+                                default=False, editable=False,
+                                verbose_name='Kleinunternehmer (§ 19 UStG) bei Erstellung'
+                              )
+
     # Metadaten
     erstellt_am             = models.DateTimeField(auto_now_add=True)
     geaendert_am            = models.DateTimeField(auto_now=True)
@@ -390,6 +472,9 @@ class Angebot(models.Model):
         return f'{self.nummer} – {self.kunde}'
 
     def save(self, *args, **kwargs):
+        # Kleinunternehmer-Status beim Anlegen festhalten
+        if self._state.adding:
+            self.kleinunternehmer = Einstellungen.laden().kleinunternehmer
         # Automatische Nummernvergabe beim ersten Speichern
         if not self.nummer:
             self.nummer = Einstellungen.laden().naechste_angebotsnummer()
@@ -401,18 +486,6 @@ class Angebot(models.Model):
         super().save(*args, **kwargs)
 
     # ── Berechnungen ──
-
-    @property
-    def netto(self):
-        return round(sum(p.gesamtpreis_netto for p in self.positionen.all()), 2)
-
-    @property
-    def mwst_gesamt(self):
-        return round(sum(p.mwst_betrag for p in self.positionen.all()), 2)
-
-    @property
-    def brutto(self):
-        return round(sum(p.gesamtpreis_brutto for p in self.positionen.all()), 2)
 
     def in_rechnung_umwandeln(self):
         """Erstellt eine neue Rechnung auf Basis dieses Angebots."""
@@ -484,7 +557,7 @@ class AngebotPosition(models.Model):
 #  RECHNUNG
 # ─────────────────────────────────────────────
 
-class Rechnung(models.Model):
+class Rechnung(SummenMixin, models.Model):
     STATUS_CHOICES = [
         ('entwurf',   'Entwurf'),
         ('gesendet',  'Gesendet'),
@@ -516,6 +589,13 @@ class Rechnung(models.Model):
     zahlungsbedingungen     = models.TextField(blank=True, verbose_name='Zahlungsbedingungen')
     interne_notizen         = models.TextField(blank=True, verbose_name='Interne Notizen')
 
+    # Kleinunternehmer-Status: wird beim Anlegen aus den Einstellungen festgehalten
+    # und ändert sich danach nicht mehr (spätere Umstellung wirkt nur auf neue Dokumente)
+    kleinunternehmer        = models.BooleanField(
+                                default=False, editable=False,
+                                verbose_name='Kleinunternehmer (§ 19 UStG) bei Erstellung'
+                              )
+
     # Metadaten
     erstellt_am             = models.DateTimeField(auto_now_add=True)
     geaendert_am            = models.DateTimeField(auto_now=True)
@@ -530,6 +610,9 @@ class Rechnung(models.Model):
         return f'{self.nummer} – {self.kunde}'
 
     def save(self, *args, **kwargs):
+        # Kleinunternehmer-Status beim Anlegen festhalten
+        if self._state.adding:
+            self.kleinunternehmer = Einstellungen.laden().kleinunternehmer
         if not self.nummer:
             self.nummer = Einstellungen.laden().naechste_rechnungsnummer()
         if not self.einleitungstext:
@@ -539,18 +622,6 @@ class Rechnung(models.Model):
         if not self.zahlungsbedingungen:
             self.zahlungsbedingungen = Einstellungen.laden().zahlungsbedingungen
         super().save(*args, **kwargs)
-
-    @property
-    def netto(self):
-        return round(sum(p.gesamtpreis_netto for p in self.positionen.all()), 2)
-
-    @property
-    def mwst_gesamt(self):
-        return round(sum(p.mwst_betrag for p in self.positionen.all()), 2)
-
-    @property
-    def brutto(self):
-        return round(sum(p.gesamtpreis_brutto for p in self.positionen.all()), 2)
 
     @property
     def bezahlt_summe(self):
@@ -644,7 +715,7 @@ class RechnungPosition(models.Model):
 #  GUTSCHRIFT
 # ─────────────────────────────────────────────
 
-class Gutschrift(models.Model):
+class Gutschrift(SummenMixin, models.Model):
     STATUS_CHOICES = [
         ('entwurf',   'Entwurf'),
         ('gesendet',  'Gesendet'),
@@ -670,6 +741,13 @@ class Gutschrift(models.Model):
     schlusstext             = models.TextField(blank=True, verbose_name='Schlusstext')
     interne_notizen         = models.TextField(blank=True, verbose_name='Interne Notizen')
 
+    # Kleinunternehmer-Status: wird beim Anlegen aus den Einstellungen festgehalten
+    # und ändert sich danach nicht mehr (spätere Umstellung wirkt nur auf neue Dokumente)
+    kleinunternehmer        = models.BooleanField(
+                                default=False, editable=False,
+                                verbose_name='Kleinunternehmer (§ 19 UStG) bei Erstellung'
+                              )
+
     erstellt_am             = models.DateTimeField(auto_now_add=True)
     geaendert_am            = models.DateTimeField(auto_now=True)
 
@@ -682,6 +760,13 @@ class Gutschrift(models.Model):
         return f'{self.nummer} – {self.kunde}'
 
     def save(self, *args, **kwargs):
+        # Kleinunternehmer-Status beim Anlegen festhalten; eine Gutschrift zu einer
+        # Rechnung übernimmt den Status der Rechnung (gleiche Steuerbehandlung)
+        if self._state.adding:
+            if self.rechnung_id:
+                self.kleinunternehmer = self.rechnung.kleinunternehmer
+            else:
+                self.kleinunternehmer = Einstellungen.laden().kleinunternehmer
         if not self.nummer:
             self.nummer = Einstellungen.laden().naechste_gutschriftnummer()
         super().save(*args, **kwargs)
@@ -691,18 +776,6 @@ class Gutschrift(models.Model):
         super().delete(*args, **kwargs)
         if rechnung:
             rechnung.gutschrift_status_aktualisieren()
-
-    @property
-    def netto(self):
-        return round(sum(p.gesamtpreis_netto for p in self.positionen.all()), 2)
-
-    @property
-    def mwst_gesamt(self):
-        return round(sum(p.mwst_betrag for p in self.positionen.all()), 2)
-
-    @property
-    def brutto(self):
-        return round(self.netto + self.mwst_gesamt, 2)
 
 
 # ─────────────────────────────────────────────

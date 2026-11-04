@@ -92,6 +92,9 @@ def platzhalter(text, objekt):
     if isinstance(objekt, Rechnung):
         werte['rechnung_nummer'] = objekt.nummer or ''
         werte['rechnung_datum'] = objekt.datum.strftime('%d.%m.%Y') if objekt.datum else ''
+        werte['rechnung_leistungsmonat'] = (
+            f"{MONATE_DE[objekt.datum.month]} {objekt.datum.year}" if objekt.datum else ''
+        )
         # Abwärtskompatibel: alte, bereits gespeicherte Rechnungstexte nutzen noch {{angebot_nummer}}/{{angebot_datum}}
         werte['angebot_nummer'] = objekt.nummer or ''
         werte['angebot_datum'] = objekt.datum.strftime('%d.%m.%Y') if objekt.datum else ''

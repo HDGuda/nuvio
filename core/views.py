@@ -83,6 +83,21 @@ def pdf_mit_hintergrund(pdf_bytes, hintergrund_file):
 #  HILFSFUNKTION: Seitennummern einstempeln
 # ─────────────────────────────────────────────
 
+def _tiefste_textzeile(page, untergrenze=79):
+    """
+    Y-Position (in pt vom unteren Seitenrand) der tiefsten Textzeile der Seite.
+    Text unterhalb von 28 mm (79 pt), also der Fußzeilenbereich, wird ignoriert.
+    """
+    ys = []
+
+    def visitor(text, cm, tm, font_dict, font_size):
+        if text.strip():
+            ys.append(cm[5] + cm[3] * tm[5])
+
+    page.extract_text(visitor_text=visitor)
+    ys = [y for y in ys if y > untergrenze]
+    return min(ys) if ys else None
+
 def seitennummern_einstempeln(pdf_bytes, y_position=686):
     """
     Stempelt die korrekte Seitenzahl als Overlay auf jede Seite.
@@ -102,6 +117,43 @@ def seitennummern_einstempeln(pdf_bytes, y_position=686):
             c.setFont("Helvetica", 7.5)
             c.setFillColorRGB(0.2, 0.2, 0.2)
             c.drawRightString(538, y_position, f"Seite {i+1} von {total}")
+            if i < total - 1:
+                text = f"Fortsetzung auf Seite {i + 2}"
+                schrift = "Helvetica"
+                groesse = 6.5
+                c.setFont(schrift, groesse)
+                text_breite = c.stringWidth(text, schrift, groesse)
+
+                pad = 6                          # Innenabstand links/rechts
+                hoehe = 12                       # Höhe des Etiketts
+                breite = text_breite + 2 * pad + 8    # +8 = Platz für den Pfeil
+                x_rechts = 538
+                tiefste = _tiefste_textzeile(page)
+                if tiefste:
+                    # 12 pt: Rest der Zeile bis zur Trennlinie, 14,2 pt = 5 mm Abstand
+                    y = max(56, tiefste - 12 - 14.2 - hoehe)
+                else:
+                    y = 60
+
+                # Etikett: helles Gold mit goldenem Rand
+                c.setFillColorRGB(0.96, 0.96, 0.96)     # #f7f0e3
+                c.setStrokeColorRGB(0.8, 0.8, 0.8)   # #c8a96e
+                c.setLineWidth(0.5)
+                c.roundRect(x_rechts - breite, y, breite, hoehe, 3, stroke=1, fill=1)
+
+                # Text in Dunkelblau
+                c.setFillColorRGB(0.102, 0.102, 0.180)     # #1a1a2e
+                c.drawString(x_rechts - breite + pad, y + 3.8, text)
+
+                # Pfeil (kleines Dreieck) am Ende
+                ax = x_rechts - pad - 4
+                mitte = y + hoehe / 2
+                pfeil = c.beginPath()
+                pfeil.moveTo(ax, mitte + 2.6)
+                pfeil.lineTo(ax + 4, mitte)
+                pfeil.lineTo(ax, mitte - 2.6)
+                pfeil.close()
+                c.drawPath(pfeil, stroke=0, fill=1)
             c.save()
             overlay_buffer.seek(0)
             overlay = PdfReader(overlay_buffer).pages[0]
@@ -227,7 +279,10 @@ def kunde_loeschen(request, pk):
 # ─────────────────────────────────────────────
 
 def artikel_liste(request):
-    artikel = Artikel.objects.filter(aktiv=True)
+    artikel = (
+        Artikel.objects.filter(aktiv=True)
+        .prefetch_related('bundle_positionen__artikel')
+    )
     return render(request, 'artikel/liste.html', {'artikel': artikel})
 
 
@@ -326,6 +381,7 @@ def angebot_neu(request):
         'form':    form,
         'formset': formset,
         'titel':   'Neues Angebot',
+        'kleinunternehmer': Einstellungen.laden().kleinunternehmer,
     })
 
 
@@ -348,6 +404,7 @@ def angebot_bearbeiten(request, pk):
         'formset': formset,
         'titel': 'Angebot bearbeiten',
         'angebot': angebot,
+        'kleinunternehmer': angebot.kleinunternehmer,
     })
 
 
@@ -905,6 +962,7 @@ def rechnung_neu(request):
         'formset': formset,
         'titel': 'Neue Rechnung',
         'artikel_liste': artikel,
+        'kleinunternehmer': Einstellungen.laden().kleinunternehmer,
     })
 
 
@@ -929,6 +987,7 @@ def rechnung_bearbeiten(request, pk):
         'titel': 'Rechnung bearbeiten',
         'artikel_liste': artikel,
         'rechnung': rechnung,
+        'kleinunternehmer': rechnung.kleinunternehmer,
     })
 
 
@@ -1085,6 +1144,7 @@ def gutschrift_neu(request):
         'formset': formset,
         'titel': 'Neue Gutschrift',
         'artikel_liste': artikel,
+        'kleinunternehmer': Einstellungen.laden().kleinunternehmer,
     })
 
 
@@ -1110,6 +1170,7 @@ def gutschrift_bearbeiten(request, pk):
         'formset': formset,
         'titel': 'Gutschrift bearbeiten',
         'artikel_liste': artikel,
+        'kleinunternehmer': gutschrift.kleinunternehmer,
     })
 
 
