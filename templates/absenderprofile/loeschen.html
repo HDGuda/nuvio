@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block titel %}Absenderprofil löschen – Nuvio{% endblock %}
+{% block seitentitel %}Absenderprofil löschen{% endblock %}
+
+{% block inhalt %}
+<div class="card">
+    <div class="card-body">
+        {% if grund %}
+        <p style="line-height: 1.6; margin-bottom: 16px; color: #c0392b;">{{ grund }}</p>
+        <a href="{% url 'absenderprofile_liste' %}" class="btn btn-secondary">← Zurück</a>
+        {% else %}
+        <p style="line-height: 1.6; margin-bottom: 16px;">
+            Soll das Absenderprofil <strong>„{{ profil.name }}"</strong> wirklich gelöscht werden? Logo und Briefpapier bleiben als Dateien erhalten.
+        </p>
+        <form method="post" style="display: flex; gap: 12px;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">Ja, löschen</button>
+            <a href="{% url 'absenderprofile_liste' %}" class="btn btn-secondary">Abbrechen</a>
+        </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

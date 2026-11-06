@@ -38,6 +38,7 @@
                 <tr><td style="color: #999; padding: 6px 0;">Datum</td><td>{{ angebot.datum|date:"d.m.Y" }}</td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Gültig bis</td><td>{{ angebot.gueltig_bis|date:"d.m.Y"|default:"–" }}</td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ angebot.status }}">{{ angebot.get_status_display }}</span></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Absender</td><td>{{ angebot.profil.name }}</td></tr>
                 {% if angebot.kleinunternehmer %}
                 <tr><td style="color: #999; padding: 6px 0;">Steuer</td><td>Kleinunternehmer (§&nbsp;19&nbsp;UStG)</td></tr>
                 {% endif %}

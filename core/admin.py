@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    Einstellungen, Kunde, Artikel,
+    Einstellungen, Absenderprofil, Kunde, Artikel,
     Vorlage, Angebot, AngebotPosition,
     Rechnung, RechnungPosition
 )
@@ -8,6 +8,10 @@ from .models import (
 @admin.register(Einstellungen)
 class EinstellungenAdmin(admin.ModelAdmin):
     pass
+
+@admin.register(Absenderprofil)
+class AbsenderprofilAdmin(admin.ModelAdmin):
+    list_display = ['name', 'ist_standard', 'firmenname', 'thunderbird_identitaet']
 
 @admin.register(Kunde)
 class KundeAdmin(admin.ModelAdmin):

@@ -3,14 +3,19 @@ from django.utils import timezone
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
 from django.template.loader import render_to_string
+from django.core.files.base import ContentFile
+import shutil
+import subprocess
+from django.db.models import Count
 from .models import (
-    Einstellungen, Kunde, Artikel, ArtikelBundlePosition,
+    Einstellungen, Absenderprofil, RechnungGesperrt, Kunde, Artikel, ArtikelBundlePosition,
     Angebot, AngebotPosition,
     Rechnung, RechnungPosition,
     Gutschrift, GutschriftPosition,
     Zahlung,
 )
 from .forms import (
+    AbsenderprofilForm,
     KundeForm, ArtikelForm, ArtikelBundlePositionFormSet,
     AngebotForm, AngebotPositionFormSet,
     RechnungForm, RechnungPositionFormSet,
@@ -98,10 +103,12 @@ def _tiefste_textzeile(page, untergrenze=79):
     ys = [y for y in ys if y > untergrenze]
     return min(ys) if ys else None
 
-def seitennummern_einstempeln(pdf_bytes, y_position=686):
+def seitennummern_einstempeln(pdf_bytes, y_position=686, y_folgeseiten=None, untergrenze=79):
     """
     Stempelt die korrekte Seitenzahl als Overlay auf jede Seite.
-    x=538 (rechtsbündig), y_position variiert je nach Anzahl der Metazeilen.
+    x=538 (rechtsbündig). y_position gilt für Seite 1, y_folgeseiten (falls gesetzt)
+    für alle weiteren Seiten. untergrenze: Text darunter (Fußzeile) zählt nicht
+    für das Etikett "Fortsetzung auf Seite n".
     """
     try:
         from pypdf import PdfWriter, PdfReader
@@ -116,7 +123,8 @@ def seitennummern_einstempeln(pdf_bytes, y_position=686):
             c = canvas.Canvas(overlay_buffer, pagesize=A4)
             c.setFont("Helvetica", 7.5)
             c.setFillColorRGB(0.2, 0.2, 0.2)
-            c.drawRightString(538, y_position, f"Seite {i+1} von {total}")
+            y_seite = y_position if (i == 0 or y_folgeseiten is None) else y_folgeseiten
+            c.drawRightString(538, y_seite, f"Seite {i+1} von {total}")
             if i < total - 1:
                 text = f"Fortsetzung auf Seite {i + 2}"
                 schrift = "Helvetica"
@@ -128,7 +136,7 @@ def seitennummern_einstempeln(pdf_bytes, y_position=686):
                 hoehe = 12                       # Höhe des Etiketts
                 breite = text_breite + 2 * pad + 8    # +8 = Platz für den Pfeil
                 x_rechts = 538
-                tiefste = _tiefste_textzeile(page)
+                tiefste = _tiefste_textzeile(page, untergrenze)
                 if tiefste:
                     # 12 pt: Rest der Zeile bis zur Trennlinie, 14,2 pt = 5 mm Abstand
                     y = max(56, tiefste - 12 - 14.2 - hoehe)
@@ -191,6 +199,87 @@ def _seiten_y(zeilen_vor_seite):
     zeilen_hoehe = 16.5
     extra = zeilen_vor_seite - basis_zeilen
     return basis_y - (extra * zeilen_hoehe)
+
+
+# ─────────────────────────────────────────────
+#  RECHNUNGS-PDF (Absenderprofil, Archiv)
+# ─────────────────────────────────────────────
+
+# "Seite x von y" im Rechnungs-Layout mit festem Briefkopf (pt vom unteren Seitenrand).
+# Seite 1: direkt unter der Nummer/Datum-Tabelle rechts oben. Die Tabelle beginnt wegen des
+# Logo-Fachs mit fester Höhe immer an derselben Stelle; jede Zeile ist 4,9 mm hoch
+# (Zeilenhöhe 16,5 px + 2 px Tabellenabstand). Kalibriert: Baseline 56,3 mm bei 3 Zeilen.
+# Folgeseiten: 12 mm von oben.
+RECHNUNG_SEITE_Y_FOLGE = 807.9
+
+
+def _rechnung_seite_y_erste(zeilen):
+    baseline_mm = 56.3 - (3 - zeilen) * 4.9
+    return 841.89 - baseline_mm * 72 / 25.4
+
+
+def _dokument_pdf_rendern(request, template, name, objekt, zeilen):
+    """
+    Rendert ein Dokument (Rechnung, Angebot) frisch: Briefkopf aus dem Absenderprofil,
+    Seitennummern, Briefpapier. zeilen = Zeilen der Nummer/Datum-Tabelle rechts oben.
+    Liefert (pdf_bytes, html); pdf_bytes ist None ohne WeasyPrint.
+    """
+    einstellungen = Einstellungen.laden()
+    profil = objekt.profil
+    html = render_to_string(template, {
+        name: objekt,
+        'einstellungen': einstellungen,
+        'profil': profil,
+        'logo_data_uri': _logo_data_uri(profil.logo),
+    })
+    if not WEASYPRINT_VERFUEGBAR:
+        return None, html
+    pdf = HTML(string=html, base_url=request.build_absolute_uri('/')).write_pdf()
+    pdf = seitennummern_einstempeln(
+        pdf,
+        y_position=_rechnung_seite_y_erste(zeilen),
+        y_folgeseiten=RECHNUNG_SEITE_Y_FOLGE,
+        untergrenze=round(profil.unterer_rand_mm * 72 / 25.4),
+    )
+    if profil.hintergrund_pdf:
+        pdf = pdf_mit_hintergrund(pdf, profil.hintergrund_pdf)
+    return pdf, html
+
+
+def _rechnung_pdf_neu_rendern(request, rechnung):
+    zeilen = 2 + (1 if rechnung.faellig_am else 0)
+    return _dokument_pdf_rendern(request, 'rechnungen/pdf.html', 'rechnung', rechnung, zeilen)
+
+
+def _gutschrift_pdf_neu_rendern(request, gutschrift):
+    zeilen = 2 + (1 if gutschrift.rechnung_id else 0)
+    return _dokument_pdf_rendern(request, 'gutschriften/pdf.html', 'gutschrift', gutschrift, zeilen)
+
+
+def _angebot_pdf_neu_rendern(request, angebot):
+    zeilen = 2 + (1 if angebot.gueltig_bis else 0)
+    return _dokument_pdf_rendern(request, 'angebote/pdf.html', 'angebot', angebot, zeilen)
+
+
+def _rechnung_pdf_bytes(request, rechnung):
+    """Archiviertes PDF (gesperrte Rechnung), sonst frisch gerendert. Gibt (pdf, html) zurück."""
+    if rechnung.pdf_archiv:
+        try:
+            with rechnung.pdf_archiv.open('rb') as f:
+                return f.read(), None
+        except (OSError, ValueError):
+            pass
+    return _rechnung_pdf_neu_rendern(request, rechnung)
+
+
+def _rechnung_archivieren(request, rechnung):
+    """Friert das PDF einer gesperrten Rechnung einmalig ein."""
+    if not rechnung.ist_gesperrt or rechnung.pdf_archiv:
+        return
+    pdf, _html = _rechnung_pdf_neu_rendern(request, rechnung)
+    if pdf:
+        rechnung.pdf_archiv.save(f'Rechnung_{rechnung.nummer}.pdf', ContentFile(pdf), save=False)
+        rechnung.save(update_fields=['pdf_archiv'])
 
 
 # ─────────────────────────────────────────────
@@ -410,29 +499,12 @@ def angebot_bearbeiten(request, pk):
 
 def angebot_pdf(request, pk):
     angebot = get_object_or_404(Angebot, pk=pk)
-    einstellungen = Einstellungen.laden()
-    html = render_to_string('angebote/pdf.html', {
-        'angebot': angebot,
-        'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
-    })
-    if WEASYPRINT_VERFUEGBAR:
-        base_url = request.build_absolute_uri('/')
-        pdf = HTML(string=html, base_url=base_url).write_pdf()
-        # Zeilen VOR 'Seite': Nummer, Datum, [Gültig bis], [BAFA-Nummer]
-        zeilen = 2
-        if angebot.gueltig_bis:
-            zeilen += 1
-        if einstellungen.firma_zusatz2:
-            zeilen += 1
-        pdf = seitennummern_einstempeln(pdf, y_position=_seiten_y(zeilen))
-        if einstellungen.hintergrund_pdf:
-            pdf = pdf_mit_hintergrund(pdf, einstellungen.hintergrund_pdf)
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'filename="Angebot_{angebot.nummer}.pdf"'
-        return response
-    else:
+    pdf, html = _angebot_pdf_neu_rendern(request, angebot)
+    if pdf is None:
         return HttpResponse(html)
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'filename="Angebot_{angebot.nummer}.pdf"'
+    return response
 
 
 # ─────────────────────────────────────────────
@@ -456,22 +528,91 @@ def _html_zu_plaintext(html):
 
 
 def _plaintext_zu_html(text):
-    """
-    Wandelt Plaintext für mail.HTMLBody vor: \n → <br>, damit
-    Outlook Zeilenumbrüche korrekt darstellt.
-    """
+    """Wandelt Plaintext in HTML um: \n → <br>, damit Zeilenumbrüche erhalten bleiben."""
     from html import escape
     return escape(text).replace('\n', '<br>\n')
 
 
-def _betreff_ersetzen(vorlage, angebot, einstellungen):
+# ─────────────────────────────────────────────
+#  E-MAIL-ÜBERGABE AN THUNDERBIRD
+# ─────────────────────────────────────────────
+
+class ThunderbirdFehler(Exception):
+    """Thunderbird wurde nicht gefunden oder konnte nicht gestartet werden."""
+
+
+def _thunderbird_pfad():
+    """
+    Sucht thunderbird.exe: zuerst die Django-Einstellung THUNDERBIRD_PFAD (optional),
+    dann den PATH, dann die üblichen Installationsorte.
+    """
+    kandidaten = [getattr(settings, 'THUNDERBIRD_PFAD', '') or '', shutil.which('thunderbird') or '']
+    for var in ('ProgramFiles', 'ProgramFiles(x86)'):
+        basis = os.environ.get(var)
+        if basis:
+            kandidaten.append(os.path.join(basis, 'Mozilla Thunderbird', 'thunderbird.exe'))
+    lokal = os.environ.get('LOCALAPPDATA')
+    if lokal:
+        kandidaten.append(os.path.join(lokal, 'Programs', 'Mozilla Thunderbird', 'thunderbird.exe'))
+    for pfad in kandidaten:
+        if pfad and os.path.isfile(pfad):
+            return pfad
+    raise ThunderbirdFehler(
+        'thunderbird.exe wurde nicht gefunden. Pfad bei Bedarf in den Django-Einstellungen '
+        '(settings.py) als THUNDERBIRD_PFAD angeben.'
+    )
+
+
+def _tb_text(text):
+    """Einzeiliger Wert für die Kommandozeile: einfache Anführungszeichen (Wertbegrenzer) werden ersetzt."""
+    text = (text or '').replace("'", '’').replace('"', '”')
+    return ' '.join(text.split())
+
+
+def _tb_body(text):
+    """HTML-Text für die Kommandozeile: Anführungszeichen werden zu Entitäten, Zeilenumbrüche zu <br>."""
+    from html import escape
+    text = escape((text or '').replace('\r\n', '\n').replace('\r', '\n'))
+    return text.replace('\n', '<br>')
+
+
+def _thunderbird_oeffnen(profil, empfaenger, betreff, text, anhaenge):
+    """
+    Öffnet in Thunderbird ein neues Schreibfenster mit Empfänger, Betreff, Text und Anhängen.
+    Die Identität (Absenderadresse) kommt aus dem Absenderprofil (preselectid, z. B. id2).
+    Versendet wird erst, wenn du in Thunderbird auf „Senden“ klickst.
+    """
+    pfad = _thunderbird_pfad()
+    for datei in anhaenge:
+        if ',' in datei or "'" in datei:
+            raise ThunderbirdFehler(
+                f'Der Dateiname „{os.path.basename(datei)}“ enthält ein Komma oder einen Apostroph '
+                'und lässt sich so nicht an Thunderbird übergeben. Bitte die Datei umbenennen.'
+            )
+    teile = [
+        f"to='{_tb_text(empfaenger).replace(';', ',')}'",
+        f"subject='{_tb_text(betreff)}'",
+        "format='html'",
+        f"body='{_tb_body(text)}'",
+        f"attachment='{','.join(anhaenge)}'",
+    ]
+    identitaet = (profil.thunderbird_identitaet or '').strip()
+    if identitaet:
+        teile.insert(0, f"preselectid='{identitaet}'")
+    try:
+        subprocess.Popen([pfad, '-compose', ','.join(teile)])
+    except OSError as e:
+        raise ThunderbirdFehler(f'Thunderbird konnte nicht gestartet werden: {e}')
+
+
+def _betreff_ersetzen(vorlage, angebot, einstellungen, firma=None):
     """Ersetzt Platzhalter in der Betreff-Vorlage."""
     kunde = angebot.kunde
     kundenname = kunde.firma or kunde.ansprechpartner or ''
     return (vorlage
         .replace('{{nummer}}', angebot.nummer)
         .replace('{{kundenname}}', kundenname)
-        .replace('{{firma}}', einstellungen.firma_name or '')
+        .replace('{{firma}}', (firma if firma is not None else einstellungen.firma_name) or '')
         .replace('{{datum}}', angebot.datum.strftime('%d.%m.%Y') if angebot.datum else ''))
 
 
@@ -482,7 +623,7 @@ def angebot_email(request, pk):
 
     betreff = _betreff_ersetzen(
         einstellungen.email_angebot_betreff or f'Angebot {angebot.nummer}',
-        angebot, einstellungen
+        angebot, einstellungen, firma=angebot.profil.firma_anzeige
     )
 
     rohtext = einstellungen.email_angebot_text or ''
@@ -506,7 +647,7 @@ def angebot_email(request, pk):
 
 
 def angebot_email_senden(request, pk):
-    """Generiert die PDF und übergibt die E-Mail an Outlook."""
+    """Generiert die PDF und übergibt die E-Mail an Thunderbird."""
     import tempfile, os, time
     angebot = get_object_or_404(Angebot, pk=pk)
     einstellungen = Einstellungen.laden()
@@ -523,23 +664,8 @@ def angebot_email_senden(request, pk):
         })
 
     # ── PDF generieren ──
-    html = render_to_string('angebote/pdf.html', {
-        'angebot': angebot,
-        'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
-    })
-    if WEASYPRINT_VERFUEGBAR:
-        base_url = request.build_absolute_uri('/')
-        pdf_bytes = HTML(string=html, base_url=base_url).write_pdf()
-        zeilen = 2
-        if angebot.gueltig_bis:
-            zeilen += 1
-        if einstellungen.firma_zusatz2:
-            zeilen += 1
-        pdf_bytes = seitennummern_einstempeln(pdf_bytes, y_position=_seiten_y(zeilen))
-        if einstellungen.hintergrund_pdf:
-            pdf_bytes = pdf_mit_hintergrund(pdf_bytes, einstellungen.hintergrund_pdf)
-    else:
+    pdf_bytes, _html = _angebot_pdf_neu_rendern(request, angebot)
+    if pdf_bytes is None:
         messages.error(request, 'WeasyPrint nicht verfügbar – PDF konnte nicht generiert werden.')
         return redirect('angebot_detail', pk=pk)
 
@@ -566,46 +692,24 @@ def angebot_email_senden(request, pk):
                 f.write(chunk)
         anhaenge.append(extra_pfad)
 
-    # ── Outlook per COM öffnen ──
+    # ── In Thunderbird öffnen ──
     try:
-        import win32com.client, pythoncom
-        pythoncom.CoInitialize()
-        outlook = win32com.client.Dispatch('Outlook.Application')
-        mail = outlook.CreateItem(0)  # 0 = olMailItem
-
-        absender_email = (einstellungen.email or '').lower().strip()
-        if absender_email:
-            try:
-                for i in range(1, outlook.Session.Accounts.Count + 1):
-                    account = outlook.Session.Accounts.Item(i)
-                    if account.SmtpAddress.lower() == absender_email:
-                        mail.SendUsingAccount = account
-                        break
-            except Exception:
-                pass
-            try:
-                mail.SentOnBehalfOfName = einstellungen.email
-            except Exception:
-                pass
-
-        mail.To       = form.cleaned_data['empfaenger']
-        mail.Subject  = form.cleaned_data['betreff']
-        mail.HTMLBody = _plaintext_zu_html(form.cleaned_data['text'])
-        for pfad in anhaenge:
-            mail.Attachments.Add(pfad)
-        mail.Display(True)  # True = modales Fenster
+        _thunderbird_oeffnen(
+            angebot.profil,
+            form.cleaned_data['empfaenger'],
+            form.cleaned_data['betreff'],
+            form.cleaned_data['text'],
+            anhaenge,
+        )
         if angebot.status == 'entwurf':
             angebot.status = 'gesendet'
             angebot.gesendet_am = timezone.now().date()
             angebot.save(update_fields=['status', 'gesendet_am'])
-    except ImportError:
-        messages.error(request, 'pywin32 ist nicht installiert. Bitte "pip install pywin32" im venv ausführen.')
-        return redirect('angebot_detail', pk=pk)
-    except Exception as e:
-        messages.error(request, f'Outlook konnte nicht geöffnet werden: {e}')
+    except ThunderbirdFehler as e:
+        messages.error(request, str(e))
         return redirect('angebot_detail', pk=pk)
 
-    messages.success(request, f'E-Mail für Angebot {angebot.nummer} wurde an Outlook übergeben.')
+    messages.success(request, f'E-Mail für Angebot {angebot.nummer} wurde an Thunderbird übergeben.')
     return redirect('angebot_detail', pk=pk)
 
 
@@ -636,7 +740,7 @@ def rechnung_email(request, pk):
 
     betreff = _betreff_ersetzen(
         einstellungen.email_rechnung_betreff or f'Rechnung {rechnung.nummer}',
-        rechnung, einstellungen
+        rechnung, einstellungen, firma=rechnung.profil.firma_anzeige
     )
 
     rohtext = einstellungen.email_rechnung_text or ''
@@ -660,7 +764,7 @@ def rechnung_email(request, pk):
 
 
 def rechnung_email_senden(request, pk):
-    """Generiert die PDF und übergibt die Rechnungs-E-Mail an Outlook."""
+    """Generiert die PDF und übergibt die Rechnungs-E-Mail an Thunderbird."""
     import tempfile, os
     rechnung = get_object_or_404(Rechnung, pk=pk)
     einstellungen = Einstellungen.laden()
@@ -676,24 +780,9 @@ def rechnung_email_senden(request, pk):
             'form': form,
         })
 
-    # ── PDF generieren ──
-    html = render_to_string('rechnungen/pdf.html', {
-        'rechnung': rechnung,
-        'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
-    })
-    if WEASYPRINT_VERFUEGBAR:
-        base_url = request.build_absolute_uri('/')
-        pdf_bytes = HTML(string=html, base_url=base_url).write_pdf()
-        zeilen = 2
-        if rechnung.faellig_am:
-            zeilen += 1
-        if einstellungen.firma_zusatz2:
-            zeilen += 1
-        pdf_bytes = seitennummern_einstempeln(pdf_bytes, y_position=_seiten_y(zeilen))
-        if einstellungen.hintergrund_pdf:
-            pdf_bytes = pdf_mit_hintergrund(pdf_bytes, einstellungen.hintergrund_pdf)
-    else:
+    # ── PDF (Archiv bei gesperrter Rechnung, sonst frisch) ──
+    pdf_bytes, _html = _rechnung_pdf_bytes(request, rechnung)
+    if pdf_bytes is None:
         messages.error(request, 'WeasyPrint nicht verfügbar – PDF konnte nicht generiert werden.')
         return redirect('rechnung_detail', pk=pk)
 
@@ -716,44 +805,22 @@ def rechnung_email_senden(request, pk):
         anhaenge.append(extra_pfad)
 
     try:
-        import win32com.client, pythoncom
-        pythoncom.CoInitialize()
-        outlook = win32com.client.Dispatch('Outlook.Application')
-        mail = outlook.CreateItem(0)
-
-        absender_email = (einstellungen.email or '').lower().strip()
-        if absender_email:
-            try:
-                for i in range(1, outlook.Session.Accounts.Count + 1):
-                    account = outlook.Session.Accounts.Item(i)
-                    if account.SmtpAddress.lower() == absender_email:
-                        mail.SendUsingAccount = account
-                        break
-            except Exception:
-                pass
-            try:
-                mail.SentOnBehalfOfName = einstellungen.email
-            except Exception:
-                pass
-
-        mail.To       = form.cleaned_data['empfaenger']
-        mail.Subject  = form.cleaned_data['betreff']
-        mail.HTMLBody = _plaintext_zu_html(form.cleaned_data['text'])
-        for pfad in anhaenge:
-            mail.Attachments.Add(pfad)
-        mail.Display(True)
+        _thunderbird_oeffnen(
+            rechnung.profil,
+            form.cleaned_data['empfaenger'],
+            form.cleaned_data['betreff'],
+            form.cleaned_data['text'],
+            anhaenge,
+        )
         if rechnung.status == 'entwurf':
             rechnung.status = 'gesendet'
             rechnung.gesendet_am = timezone.now().date()
             rechnung.save(update_fields=['status', 'gesendet_am'])
-    except ImportError:
-        messages.error(request, 'pywin32 ist nicht installiert.')
-        return redirect('rechnung_detail', pk=pk)
-    except Exception as e:
-        messages.error(request, f'Outlook konnte nicht geöffnet werden: {e}')
+    except ThunderbirdFehler as e:
+        messages.error(request, str(e))
         return redirect('rechnung_detail', pk=pk)
 
-    messages.success(request, f'E-Mail für Rechnung {rechnung.nummer} wurde an Outlook übergeben.')
+    messages.success(request, f'E-Mail für Rechnung {rechnung.nummer} wurde an Thunderbird übergeben.')
     return redirect('rechnung_detail', pk=pk)
 
 
@@ -768,7 +835,7 @@ def gutschrift_email(request, pk):
 
     betreff = _betreff_ersetzen(
         einstellungen.email_gutschrift_betreff or f'Gutschrift {gutschrift.nummer}',
-        gutschrift, einstellungen
+        gutschrift, einstellungen, firma=gutschrift.profil.firma_anzeige
     )
 
     rohtext = einstellungen.email_gutschrift_text or ''
@@ -792,7 +859,7 @@ def gutschrift_email(request, pk):
 
 
 def gutschrift_email_senden(request, pk):
-    """Generiert die PDF und übergibt die Gutschrift-E-Mail an Outlook."""
+    """Generiert die PDF und übergibt die Gutschrift-E-Mail an Thunderbird."""
     import tempfile, os
     gutschrift = get_object_or_404(Gutschrift, pk=pk)
     einstellungen = Einstellungen.laden()
@@ -809,21 +876,8 @@ def gutschrift_email_senden(request, pk):
         })
 
     # ── PDF generieren ──
-    html = render_to_string('gutschriften/pdf.html', {
-        'gutschrift': gutschrift,
-        'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
-    })
-    if WEASYPRINT_VERFUEGBAR:
-        base_url = request.build_absolute_uri('/')
-        pdf_bytes = HTML(string=html, base_url=base_url).write_pdf()
-        zeilen = 2
-        if gutschrift.rechnung:
-            zeilen += 1
-        pdf_bytes = seitennummern_einstempeln(pdf_bytes, y_position=_seiten_y(zeilen))
-        if einstellungen.hintergrund_pdf:
-            pdf_bytes = pdf_mit_hintergrund(pdf_bytes, einstellungen.hintergrund_pdf)
-    else:
+    pdf_bytes, _html = _gutschrift_pdf_neu_rendern(request, gutschrift)
+    if pdf_bytes is None:
         messages.error(request, 'WeasyPrint nicht verfügbar – PDF konnte nicht generiert werden.')
         return redirect('gutschrift_detail', pk=pk)
 
@@ -846,43 +900,21 @@ def gutschrift_email_senden(request, pk):
         anhaenge.append(extra_pfad)
 
     try:
-        import win32com.client, pythoncom
-        pythoncom.CoInitialize()
-        outlook = win32com.client.Dispatch('Outlook.Application')
-        mail = outlook.CreateItem(0)
-
-        absender_email = (einstellungen.email or '').lower().strip()
-        if absender_email:
-            try:
-                for i in range(1, outlook.Session.Accounts.Count + 1):
-                    account = outlook.Session.Accounts.Item(i)
-                    if account.SmtpAddress.lower() == absender_email:
-                        mail.SendUsingAccount = account
-                        break
-            except Exception:
-                pass
-            try:
-                mail.SentOnBehalfOfName = einstellungen.email
-            except Exception:
-                pass
-
-        mail.To       = form.cleaned_data['empfaenger']
-        mail.Subject  = form.cleaned_data['betreff']
-        mail.HTMLBody = _plaintext_zu_html(form.cleaned_data['text'])
-        for pfad in anhaenge:
-            mail.Attachments.Add(pfad)
-        mail.Display(True)
+        _thunderbird_oeffnen(
+            gutschrift.profil,
+            form.cleaned_data['empfaenger'],
+            form.cleaned_data['betreff'],
+            form.cleaned_data['text'],
+            anhaenge,
+        )
         if gutschrift.status == 'entwurf':
             gutschrift.status = 'gesendet'
             gutschrift.save(update_fields=['status'])
-    except ImportError:
-        messages.error(request, 'pywin32 ist nicht installiert.')
-        return redirect('gutschrift_detail', pk=pk)
-    except Exception as e:
-        messages.error(request, f'Outlook konnte nicht geöffnet werden: {e}')
+    except ThunderbirdFehler as e:
+        messages.error(request, str(e))
         return redirect('gutschrift_detail', pk=pk)
 
-    messages.success(request, f'E-Mail für Gutschrift {gutschrift.nummer} wurde an Outlook übergeben.')
+    messages.success(request, f'E-Mail für Gutschrift {gutschrift.nummer} wurde an Thunderbird übergeben.')
     return redirect('gutschrift_detail', pk=pk)
 
 
@@ -932,11 +964,13 @@ def rechnung_zahlungseingang(request, pk):
         betrag=form.cleaned_data['bezahlt_betrag'],
     )
 
-    if rechnung.bezahlt_summe >= rechnung.brutto:
+    if rechnung.offener_betrag <= 0:
         rechnung.status = 'bezahlt'
     else:
         rechnung.status = 'teilbezahlt'
     rechnung.save(update_fields=['status'])
+    if rechnung.sperren_falls_bezahlt():
+        _rechnung_archivieren(request, rechnung)
 
     messages.success(request, f'Zahlungseingang von {zahlung.betrag} € wurde gespeichert.')
     return redirect('rechnung_detail', pk=pk)
@@ -951,6 +985,8 @@ def rechnung_neu(request):
             rechnung = form.save()
             formset.instance = rechnung
             formset.save()
+            if rechnung.sperren_falls_bezahlt():
+                _rechnung_archivieren(request, rechnung)
             messages.success(request, f'Rechnung „{rechnung.nummer}" wurde angelegt.')
             return redirect('rechnung_detail', pk=rechnung.pk)
     else:
@@ -968,6 +1004,13 @@ def rechnung_neu(request):
 
 def rechnung_bearbeiten(request, pk):
     rechnung = get_object_or_404(Rechnung, pk=pk)
+    if rechnung.ist_gesperrt:
+        messages.warning(
+            request,
+            f'Rechnung „{rechnung.nummer}" ist bezahlt und damit gesperrt (GoBD). '
+            'Korrekturen sind nur per Gutschrift und neuer Rechnung möglich.'
+        )
+        return redirect('rechnung_detail', pk=pk)
     RechnungPositionFormSet.extra = 0
     if request.method == 'POST':
         form = RechnungForm(request.POST, instance=rechnung)
@@ -975,6 +1018,8 @@ def rechnung_bearbeiten(request, pk):
         if form.is_valid() and formset.is_valid():
             form.save()
             formset.save()
+            if rechnung.sperren_falls_bezahlt():
+                _rechnung_archivieren(request, rechnung)
             messages.success(request, f'Rechnung „{rechnung.nummer}" wurde gespeichert.')
             return redirect('rechnung_detail', pk=rechnung.pk)
     else:
@@ -993,28 +1038,75 @@ def rechnung_bearbeiten(request, pk):
 
 def rechnung_pdf(request, pk):
     rechnung = get_object_or_404(Rechnung, pk=pk)
-    einstellungen = Einstellungen.laden()
-    html = render_to_string('rechnungen/pdf.html', {
-        'rechnung': rechnung,
-        'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
-    })
-    if WEASYPRINT_VERFUEGBAR:
-        base_url = request.build_absolute_uri('/')
-        pdf = HTML(string=html, base_url=base_url).write_pdf()
-        zeilen = 2
-        if rechnung.faellig_am:
-            zeilen += 1
-        if einstellungen.firma_zusatz2:
-            zeilen += 1
-        pdf = seitennummern_einstempeln(pdf, y_position=_seiten_y(zeilen))
-        if einstellungen.hintergrund_pdf:
-            pdf = pdf_mit_hintergrund(pdf, einstellungen.hintergrund_pdf)
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'filename="Rechnung_{rechnung.nummer}.pdf"'
-        return response
-    else:
+    _rechnung_archivieren(request, rechnung)  # gesperrte Rechnungen werden beim ersten Abruf eingefroren
+    pdf, html = _rechnung_pdf_bytes(request, rechnung)
+    if pdf is None:
         return HttpResponse(html)
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'filename="Rechnung_{rechnung.nummer}.pdf"'
+    return response
+
+
+# ─────────────────────────────────────────────
+#  ABSENDERPROFILE
+# ─────────────────────────────────────────────
+
+def absenderprofile_liste(request):
+    Absenderprofil.standard()  # stellt sicher, dass mindestens ein Profil existiert
+    profile = Absenderprofil.objects.annotate(
+        anzahl_rechnungen=Count('rechnungen', distinct=True),
+        anzahl_angebote=Count('angebote', distinct=True),
+        anzahl_gutschriften=Count('gutschriften', distinct=True),
+    )
+    return render(request, 'absenderprofile/liste.html', {'profile': profile})
+
+
+def absenderprofil_neu(request):
+    form = AbsenderprofilForm(request.POST or None, request.FILES or None)
+    if request.method == 'POST' and form.is_valid():
+        profil = form.save()
+        messages.success(request, f'Absenderprofil „{profil.name}\" wurde angelegt.')
+        return redirect('absenderprofile_liste')
+    return render(request, 'absenderprofile/formular.html', {
+        'form': form, 'titel': 'Neues Absenderprofil',
+    })
+
+
+def absenderprofil_bearbeiten(request, pk):
+    profil = get_object_or_404(Absenderprofil, pk=pk)
+    form = AbsenderprofilForm(request.POST or None, request.FILES or None, instance=profil)
+    if request.method == 'POST' and form.is_valid():
+        form.save()
+        messages.success(request, f'Absenderprofil „{profil.name}\" wurde gespeichert.')
+        return redirect('absenderprofile_liste')
+    return render(request, 'absenderprofile/formular.html', {
+        'form': form, 'profil': profil, 'titel': 'Absenderprofil bearbeiten',
+    })
+
+
+def absenderprofil_standard(request, pk):
+    profil = get_object_or_404(Absenderprofil, pk=pk)
+    if request.method == 'POST':
+        profil.ist_standard = True
+        profil.save()  # setzt bei allen anderen Profilen ist_standard zurück
+        messages.success(request, f'„{profil.name}\" ist jetzt das Standardprofil.')
+    return redirect('absenderprofile_liste')
+
+
+def absenderprofil_loeschen(request, pk):
+    profil = get_object_or_404(Absenderprofil, pk=pk)
+    anzahl = profil.rechnungen.count() + profil.angebote.count() + profil.gutschriften.count()
+    grund = None
+    if profil.ist_standard:
+        grund = 'Das Standardprofil kann nicht gelöscht werden. Lege zuerst ein anderes Profil als Standard fest.'
+    elif anzahl:
+        grund = f'Das Profil wird von {anzahl} Dokument(en) verwendet und kann nicht gelöscht werden.'
+    if request.method == 'POST' and not grund:
+        name = profil.name
+        profil.delete()
+        messages.success(request, f'Absenderprofil „{name}\" wurde gelöscht.')
+        return redirect('absenderprofile_liste')
+    return render(request, 'absenderprofile/loeschen.html', {'profil': profil, 'grund': grund})
 
 
 # ─────────────────────────────────────────────
@@ -1176,26 +1268,12 @@ def gutschrift_bearbeiten(request, pk):
 
 def gutschrift_pdf(request, pk):
     gutschrift = get_object_or_404(Gutschrift, pk=pk)
-    einstellungen = Einstellungen.laden()
-    html = render_to_string('gutschriften/pdf.html', {
-        'gutschrift': gutschrift,
-        'einstellungen': einstellungen,
-        'logo_data_uri': _logo_data_uri(einstellungen.logo),
-    })
-    if WEASYPRINT_VERFUEGBAR:
-        base_url = request.build_absolute_uri('/')
-        pdf = HTML(string=html, base_url=base_url).write_pdf()
-        zeilen = 2
-        if gutschrift.rechnung:
-            zeilen += 1
-        pdf = seitennummern_einstempeln(pdf, y_position=_seiten_y_gutschrift(zeilen))
-        if einstellungen.hintergrund_pdf:
-            pdf = pdf_mit_hintergrund(pdf, einstellungen.hintergrund_pdf)
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'filename="Gutschrift_{gutschrift.nummer}.pdf"'
-        return response
-    else:
+    pdf, html = _gutschrift_pdf_neu_rendern(request, gutschrift)
+    if pdf is None:
         return HttpResponse(html)
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'filename="Gutschrift_{gutschrift.nummer}.pdf"'
+    return response
 
 
 def rechnung_in_gutschrift(request, pk):

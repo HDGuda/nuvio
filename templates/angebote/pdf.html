@@ -17,7 +17,7 @@
     @page {
         size: A4;
         margin-top: 20mm;
-        margin-bottom: {% if einstellungen.hintergrund_pdf %}28mm{% else %}10mm{% endif %};
+        margin-bottom: {% if profil.hintergrund_pdf %}{{ profil.unterer_rand_mm }}mm{% else %}10mm{% endif %};
         margin-left: 20mm;
         margin-right: 20mm;
         background: transparent;
@@ -36,117 +36,104 @@
         border: none;
         vertical-align: top;
     }
-    table.seite > thead > tr > td {
-        padding-bottom: 4mm;
-    }
 
-    /* ── KOPFZEILE ── */
-    .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
+    /* ── BRIEFKOPF (nur Seite 1) ──
+       Für Fensterumschläge: Adressfenster 49 mm von oben, 20 mm von links, 45 mm hoch.
+       Der Block reicht per negativem Rand bis zur Blattoberkante (= Seitenrand oben),
+       alle top-Werte sind daher Abstände vom oberen Blattrand, alle left/right-Werte
+       Abstände vom Textrand (20 mm vom Blattrand). */
+    .briefkopf {
+        position: relative;
+        height: 96mm;
         margin-top: -20mm;
-        padding-top: 8mm;
-        padding-bottom: 8mm;
     }
 
-    .logo-block .firma {
-        font-size: 14px;
-        font-weight: 700;
-        color: #1a1a2e;
-    }
-
-    .logo-block .adresse {
-        margin-top: 6px;
-        font-size: 11px;
+    .kopf {
+        position: absolute;
+        top: 8mm;
+        width: 80mm;
+        font-size: 9.25pt;
         color: #666;
         line-height: 1.5;
     }
+    .kopf-links  { left: 0; }
+    .kopf-rechts { right: 0; text-align: right; }
+    .kopf .firma { font-weight: 700; color: #1a1a2e; }
 
-    .doc-meta {
-        text-align: right;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 0;
-    }
-
-    .doc-meta img {
+    /* Logo-Fach rechts mit fester Höhe, damit Titel und Nummer immer gleich liegen
+       (nuvio stempelt "Seite x von y" relativ dazu) */
+    .kopf-rechts .fach { height: 72px; overflow: hidden; }
+    .kopf-rechts img {
         max-height: 56px;
         max-width: 180px;
         display: block;
         margin-left: auto;
-        margin-bottom: 16px;
+    }
+    .kopf-links img {
+        max-height: 56px;
+        max-width: 180px;
+        display: block;
+        margin-bottom: 8px;
     }
 
-    .doc-meta .doc-titel {
+    .kopf-rechts .doc-titel {
         font-size: 22px;
         font-weight: 300;
         color: #1a1a2e;
         letter-spacing: 0.06em;
         text-transform: uppercase;
+        line-height: 1.5;
         margin-bottom: 6px;
     }
-
-    .doc-meta table {
+    .kopf-rechts table {
         margin-left: auto;
         font-size: 11px;
         border: none;
     }
-
-    .doc-meta table td {
-        padding: 0px 0 0px 12px;
+    .kopf-rechts table td {
+        padding: 0 0 0 12px;
         border: none;
         background: none;
+        line-height: 1.5;
     }
-
-    .doc-meta table td:first-child {
+    .kopf-rechts table td:first-child {
         color: #aaa;
         font-size: 10px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
         text-align: left;
     }
-
-    .doc-meta table td:last-child {
+    .kopf-rechts table td:last-child {
         text-align: right;
         color: #333;
         font-weight: 500;
     }
 
-
-    /* ── EMPFÄNGER ── */
-    .empfaenger {
-        margin: 24px 0 20px;
-    }
-
-    .empfaenger .label {
-        font-size: 9px;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: #aaa;
-        margin-bottom: 4px;
-    }
-
-    .empfaenger .name {
-        font-size: 14px;
-        font-weight: 600;
-        color: #1a1a2e;
-    }
-
-    .empfaenger .details {
-        font-size: 12px;
-        color: #666;
-        line-height: 1.6;
-        margin-top: 2px;
-    }
-
-    /* ── EINLEITUNGSTEXT ── */
-    .einleitung {
-        margin-bottom: 20px;
-        font-size: 12px;
+    /* Absenderzeile: 3 mm hoch, im Adressfenster direkt unter der Fensterkante (49–52 mm) */
+    .absenderzeile {
+        position: absolute;
+        left: 0;
+        top: 49mm;
+        width: 85mm;
+        height: 3mm;
+        font-size: 7pt;
+        line-height: 3mm;
         color: #555;
-        line-height: 1.7;
+        white-space: nowrap;
+        overflow: hidden;
+        text-decoration: underline;
+    }
+
+    /* Empfängeradresse: Oberkante 55 mm (3 mm Abstand unter der Absenderzeile), 10 pt */
+    .adressfeld {
+        position: absolute;
+        left: 0;
+        top: 55mm;
+        width: 85mm;
+        height: 39mm;
+        font-size: 10pt;
+        line-height: 1.35;
+        color: #222;
     }
 
     /* ── BETREFF ── */
@@ -155,6 +142,14 @@
         font-size: 12px;
         font-weight: 700;
         color: #1a1a2e;
+    }
+
+    /* ── EINLEITUNGSTEXT ── */
+    .einleitung {
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: #555;
+        line-height: 1.7;
     }
 
     /* ── POSITIONSTABELLE ── */
@@ -284,6 +279,16 @@
         line-height: 1.7;
     }
 
+    /* ── ZAHLUNGSBEDINGUNGEN ── */
+    .zahlungsbedingungen {
+        margin-top: 16px;
+        font-size: 11px;
+        color: #888;
+        padding: 10px 14px;
+        background: #f8f7f4;
+        border-left: 3px solid #c8a96e;
+    }
+
     /* ── FUßZEILE ── */
     .footer-wrapper {
         padding-top: 8px;
@@ -320,53 +325,14 @@
 <body>
 
 <table class="seite">
-  <thead>
-    <tr><td>
-      <!-- KOPFZEILE -->
-      <div class="header">
-        <div class="logo-block">
-          <div class="firma">{{ einstellungen.firma_name }}</div>
-          <div class="adresse">
-            {% if einstellungen.firma_zusatz %}{{ einstellungen.firma_zusatz }}<br>{% endif %}
-            {% if einstellungen.firma_zusatz2 %}{{ einstellungen.firma_zusatz2 }}<br>{% endif %}
-            {{ einstellungen.strasse }}<br>
-            {{ einstellungen.plz }} {{ einstellungen.ort }}<br>
-            {% if einstellungen.email %}{{ einstellungen.email }}{% endif %}
-          </div>
-        </div>
-        <div class="doc-meta">
-          {% if logo_data_uri %}
-          <img src="{{ logo_data_uri }}">
-          {% elif einstellungen.logo %}
-          <img src="{{ einstellungen.logo.url }}">
-          {% endif %}
-          <div class="doc-titel">Angebot</div>
-          <table>
-            <tr><td>Nummer</td><td>{{ angebot.nummer }}</td></tr>
-            <tr><td>Datum</td><td>{{ angebot.datum|datum_de }}</td></tr>
-            {% if angebot.gueltig_bis %}
-            <tr><td>Gültig bis</td><td>{{ angebot.gueltig_bis|datum_de }}</td></tr>
-            {% endif %}
-            {% comment %}
-            {% if einstellungen.firma_zusatz2 %}
-            <tr><td>BAFA-Nummer</td><td><strong>{{ einstellungen.firma_zusatz2 }}</strong></td></tr>
-            {% endif %}
-            {% endcomment %}
-
-          </table>
-        </div>
-      </div>
-    </td></tr>
-  </thead>
-
   <tfoot>
     <tr><td>
       <!-- FUßZEILE – nur ohne Hintergrund-PDF -->
-      {% if not einstellungen.hintergrund_pdf %}
+      {% if not profil.hintergrund_pdf %}
       <div class="footer-wrapper">
         <div class="footer-inner">
           <div class="footer-spalte">
-            <strong>{{ einstellungen.firma_name }}</strong>
+            <strong>{{ profil.firma_anzeige }}</strong>
             {% if einstellungen.firma_zusatz %}{{ einstellungen.firma_zusatz }}<br>{% endif %}
             {{ einstellungen.strasse }}<br>
             {{ einstellungen.plz }} {{ einstellungen.ort }}<br>
@@ -394,23 +360,44 @@
 
   <tbody>
     <tr><td>
-      <!-- EMPFÄNGER -->
-      <div class="empfaenger">
-        <div class="label">Angebot für</div>
-        <div class="name">{{ angebot.kunde.firma|default:angebot.kunde.ansprechpartner }}</div>
-        <div class="details">
-          {% if angebot.kunde.firma and angebot.kunde.ansprechpartner %}
-          z. Hd. {{ angebot.kunde.ansprechpartner }}<br>
-          {% endif %}
+      <!-- BRIEFKOPF, ABSENDERZEILE, EMPFÄNGER, INFOBLOCK -->
+      <div class="briefkopf">
+        <div class="kopf kopf-links">
+          {% if logo_data_uri and profil.logo_position == 'links' %}<img src="{{ logo_data_uri }}">{% endif %}
+          {% if profil.firma_anzeige %}<div class="firma">{{ profil.firma_anzeige }}</div>{% endif %}
+          {% if profil.kopf_links %}<div>{{ profil.kopf_links|linebreaksbr }}</div>{% endif %}
+        </div>
+
+        <div class="kopf kopf-rechts">
+          <div class="fach">
+            {% if logo_data_uri and profil.logo_position == 'rechts' %}<img src="{{ logo_data_uri }}">
+            {% elif profil.kopf_rechts %}{{ profil.kopf_rechts|linebreaksbr }}{% endif %}
+          </div>
+          <div class="doc-titel">Angebot</div>
+          <table>
+            <tr><td>Nummer</td><td>{{ angebot.nummer }}</td></tr>
+            <tr><td>Datum</td><td>{{ angebot.datum|datum_de }}</td></tr>
+            {% if angebot.gueltig_bis %}
+            <tr><td>Gültig bis</td><td>{{ angebot.gueltig_bis|datum_de }}</td></tr>
+            {% endif %}
+          </table>
+        </div>
+
+        {% if profil.absenderzeile %}<div class="absenderzeile">{{ profil.absenderzeile }}</div>{% endif %}
+
+        <div class="adressfeld">
+          {% if angebot.kunde.firma %}{{ angebot.kunde.firma }}<br>{% endif %}
+          {% if angebot.kunde.ansprechpartner %}{{ angebot.kunde.ansprechpartner }}<br>{% endif %}
           {{ angebot.kunde.strasse }}<br>
           {{ angebot.kunde.plz }} {{ angebot.kunde.ort }}
+          {% with land=angebot.kunde.land|upper %}{% if land and land != 'DE' and land != 'DEUTSCHLAND' and land != 'GERMANY' %}<br>{{ land }}{% endif %}{% endwith %}
         </div>
       </div>
 
+      <!-- BETREFF -->
       {% if angebot.betreff %}
-        <div class="betreff">{{ angebot.betreff }}</div>
+      <div class="betreff">{{ angebot.betreff }}</div>
       {% endif %}
-
 
       <!-- EINLEITUNGSTEXT -->
       {% if angebot.einleitungstext %}

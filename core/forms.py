@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
 from .models import (
-    Einstellungen, Kunde, Artikel, ArtikelBundlePosition,
+    Einstellungen, Absenderprofil, Kunde, Artikel, ArtikelBundlePosition,
     Angebot, AngebotPosition,
     Rechnung, RechnungPosition,
     Gutschrift, GutschriftPosition,
@@ -192,7 +192,7 @@ class AngebotForm(forms.ModelForm):
     class Meta:
         model = Angebot
         fields = [
-            'kunde', 'datum', 'gueltig_bis',
+            'kunde', 'absenderprofil', 'datum', 'gueltig_bis',
             'status', 'betreff',
             'einleitungstext', 'schlusstext',
             'interne_notizen',
@@ -211,6 +211,15 @@ class AngebotForm(forms.ModelForm):
         # übergeben und dürfen daher nicht als required gelten.
         self.fields['einleitungstext'].required = False
         self.fields['schlusstext'].required = False
+        profil = self.fields['absenderprofil']
+        profil.required = True
+        profil.empty_label = None
+        if not self.instance.pk:
+            profil.initial = Absenderprofil.standard().pk
+            # Standardtexte gleich im Formular vorbelegen (nicht erst beim Speichern)
+            e = Einstellungen.laden()
+            self.fields['einleitungstext'].initial = e.angebot_einleitung
+            self.fields['schlusstext'].initial = e.angebot_schlusstext
 
 
 class AngebotPositionForm(forms.ModelForm):
@@ -301,7 +310,7 @@ class RechnungForm(forms.ModelForm):
     class Meta:
         model = Rechnung
         fields = [
-            'kunde', 'datum', 'faellig_am',
+            'kunde', 'absenderprofil', 'datum', 'faellig_am',
             'status', 'betreff',
             'einleitungstext', 'schlusstext',
             'zahlungsbedingungen', 'interne_notizen',
@@ -313,6 +322,46 @@ class RechnungForm(forms.ModelForm):
             'schlusstext':          forms.Textarea(attrs={'rows': 3}),
             'zahlungsbedingungen':  forms.Textarea(attrs={'rows': 2}),
             'interne_notizen':      forms.Textarea(attrs={'rows': 2}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        profil = self.fields['absenderprofil']
+        profil.required = True
+        profil.empty_label = None
+        if not self.instance.pk:
+            profil.initial = Absenderprofil.standard().pk
+            # Standardtexte gleich im Formular vorbelegen (nicht erst beim Speichern)
+            e = Einstellungen.laden()
+            self.fields['einleitungstext'].initial = e.rechnung_einleitung
+            self.fields['schlusstext'].initial = e.rechnung_schlusstext
+            self.fields['zahlungsbedingungen'].initial = e.zahlungsbedingungen
+        self.fields['status'].help_text = (
+            'Achtung: "Bezahlt" sperrt die Rechnung dauerhaft (GoBD). '
+            'Danach sind nur noch Korrekturen per Gutschrift möglich.'
+        )
+
+
+# ─────────────────────────────────────────────
+#  ABSENDERPROFIL
+# ─────────────────────────────────────────────
+
+class AbsenderprofilForm(forms.ModelForm):
+    class Meta:
+        model = Absenderprofil
+        fields = [
+            'name', 'ist_standard', 'firmenname',
+            'logo', 'logo_position',
+            'kopf_links', 'kopf_rechts', 'absenderzeile',
+            'hintergrund_pdf', 'unterer_rand_mm', 'thunderbird_identitaet',
+        ]
+        widgets = {
+            'ist_standard': forms.CheckboxInput(attrs={'style': 'width: auto; margin: 0;'}),
+            'kopf_links':   forms.Textarea(attrs={'rows': 6}),
+            'kopf_rechts':  forms.Textarea(attrs={'rows': 6}),
+            # schlichte Dateiauswahl: aktuelle Datei und "Löschen"-Kästchen entfallen
+            'logo':            forms.FileInput(attrs={'accept': 'image/*'}),
+            'hintergrund_pdf': forms.FileInput(attrs={'accept': 'application/pdf'}),
         }
 
 
@@ -413,7 +462,7 @@ class GutschriftForm(forms.ModelForm):
     class Meta:
         model = Gutschrift
         fields = [
-            'kunde', 'datum', 'rechnung',
+            'kunde', 'absenderprofil', 'datum', 'rechnung',
             'status', 'betreff',
             'einleitungstext', 'schlusstext',
             'interne_notizen',
@@ -424,6 +473,14 @@ class GutschriftForm(forms.ModelForm):
             'schlusstext':      forms.Textarea(attrs={'rows': 3}),
             'interne_notizen':  forms.Textarea(attrs={'rows': 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        profil = self.fields['absenderprofil']
+        profil.required = True
+        profil.empty_label = None
+        if not self.instance.pk:
+            profil.initial = Absenderprofil.standard().pk
 
 
 class GutschriftPositionForm(forms.ModelForm):

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block titel %}Absenderprofile – Nuvio{% endblock %}
+{% block seitentitel %}Absenderprofile{% endblock %}
+
+{% block topbar_actions %}
+    <a href="{% url 'absenderprofil_neu' %}" class="btn btn-primary">+ Neues Profil</a>
+{% endblock %}
+
+{% block inhalt %}
+
+<div class="card">
+    <div class="card-body" style="padding: 0; overflow-x: auto;">
+        <table class="tabelle">
+            <thead>
+                <tr>
+                    <th>Profil</th>
+                    <th>Logo</th>
+                    <th>Briefpapier</th>
+                    <th class="text-rechts">Dokumente</th>
+                    <th>Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in profile %}
+                <tr>
+                    <td>
+                        <strong>{{ p.name }}</strong>
+                        {% if p.ist_standard %}
+                        <span style="margin-left: 8px; font-size: 11px; padding: 2px 8px; border-radius: 10px; background: #f1ead9; color: #8a6d2f;">Standard</span>
+                        {% endif %}
+                        <div class="text-grau text-klein">{{ p.firma_anzeige }}</div>
+                        {% if p.thunderbird_identitaet %}<div class="text-grau text-klein">Thunderbird: {{ p.thunderbird_identitaet }}</div>{% endif %}
+                    </td>
+                    <td>{% if p.logo %}<img src="{{ p.logo.url }}" style="max-height: 32px; max-width: 90px;">{% else %}–{% endif %}</td>
+                    <td>{% if p.hintergrund_pdf %}📄 ja{% else %}–{% endif %}</td>
+                    <td class="text-rechts" title="{{ p.anzahl_rechnungen }} Rechnungen, {{ p.anzahl_angebote }} Angebote, {{ p.anzahl_gutschriften }} Gutschriften">
+                        {{ p.anzahl_rechnungen|add:p.anzahl_angebote|add:p.anzahl_gutschriften }}
+                    </td>
+                    <td>
+                        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                            <a href="{% url 'absenderprofil_bearbeiten' p.pk %}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Bearbeiten</a>
+                            {% if not p.ist_standard %}
+                            <form method="post" action="{% url 'absenderprofil_standard' p.pk %}" style="margin: 0;">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Als Standard</button>
+                            </form>
+                            <a href="{% url 'absenderprofil_loeschen' p.pk %}" class="btn btn-secondary" style="font-size: 12px; padding: 4px 10px;">Löschen</a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div class="text-grau text-klein" style="margin-top: 12px; line-height: 1.6;">
+    Das Standardprofil wird bei neuen Rechnungen vorausgewählt. Alle Profile verwenden denselben Rechnungsnummernkreis,
+    dieselben Steuer- und Bankdaten und den Kleinunternehmer-Schalter aus den Einstellungen.
+</div>
+
+<a href="{% url 'einstellungen' %}" class="btn btn-secondary mt-16">← Zurück zu den Einstellungen</a>
+
+{% endblock %}

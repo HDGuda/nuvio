@@ -24,6 +24,7 @@
                 <tr><td style="color: #999; padding: 6px 0;">Kunde</td><td><a href="{% url 'kunde_detail' gutschrift.kunde.pk %}">{{ gutschrift.kunde }}</a></td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Datum</td><td>{{ gutschrift.datum|date:"d.m.Y" }}</td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ gutschrift.status }}">{{ gutschrift.get_status_display }}</span></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Absender</td><td>{{ gutschrift.profil.name }}</td></tr>
                 {% if gutschrift.kleinunternehmer %}
                 <tr><td style="color: #999; padding: 6px 0;">Steuer</td><td>Kleinunternehmer (§&nbsp;19&nbsp;UStG)</td></tr>
                 {% endif %}

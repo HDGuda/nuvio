@@ -50,6 +50,13 @@ urlpatterns = [
     path('gutschriften/<int:pk>/loeschen/', views.gutschrift_loeschen, name='gutschrift_loeschen'),
     path('rechnungen/<int:pk>/gutschrift/', views.rechnung_in_gutschrift, name='rechnung_in_gutschrift'),
 
+    # Absenderprofile
+    path('absenderprofile/', views.absenderprofile_liste, name='absenderprofile_liste'),
+    path('absenderprofile/neu/', views.absenderprofil_neu, name='absenderprofil_neu'),
+    path('absenderprofile/<int:pk>/bearbeiten/', views.absenderprofil_bearbeiten, name='absenderprofil_bearbeiten'),
+    path('absenderprofile/<int:pk>/standard/', views.absenderprofil_standard, name='absenderprofil_standard'),
+    path('absenderprofile/<int:pk>/loeschen/', views.absenderprofil_loeschen, name='absenderprofil_loeschen'),
+
     # Einstellungen
     path('einstellungen/', views.einstellungen, name='einstellungen'),
     path('datensicherung/', views.datensicherung, name='datensicherung'),

@@ -4,7 +4,7 @@
 {% block seitentitel %}{{ rechnung.nummer }}{% endblock %}
 
 {% block topbar_actions %}
-    <a href="{% url 'rechnung_bearbeiten' rechnung.pk %}" class="btn btn-secondary">Bearbeiten</a>
+    {% if not rechnung.ist_gesperrt %}<a href="{% url 'rechnung_bearbeiten' rechnung.pk %}" class="btn btn-secondary">Bearbeiten</a>{% endif %}
     <a href="{% url 'rechnung_pdf' rechnung.pk %}" class="btn btn-gold" target="_blank">PDF erzeugen</a>
     <a href="{% url 'rechnung_email' rechnung.pk %}" class="btn btn-primary">✉ Per E-Mail senden</a>
     <a href="{% url 'rechnung_in_gutschrift' rechnung.pk %}" class="btn btn-success">+ Gutschrift erstellen</a>
@@ -27,6 +27,10 @@
                 <tr><td style="color: #999; padding: 6px 0;">Datum</td><td>{{ rechnung.datum|date:"d.m.Y" }}</td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Fällig am</td><td>{{ rechnung.faellig_am|date:"d.m.Y"|default:"–" }}</td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ rechnung.status }}">{{ rechnung.get_status_display }}</span></td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Absender</td><td>{{ rechnung.profil.name }}</td></tr>
+                {% if rechnung.ist_gesperrt %}
+                <tr><td style="color: #999; padding: 6px 0;">Gesperrt</td><td>seit {{ rechnung.gesperrt_am|date:"d.m.Y" }} (bezahlt, GoBD) – Korrektur nur per Gutschrift</td></tr>
+                {% endif %}
                 {% if rechnung.kleinunternehmer %}
                 <tr><td style="color: #999; padding: 6px 0;">Steuer</td><td>Kleinunternehmer (§&nbsp;19&nbsp;UStG)</td></tr>
                 {% endif %}

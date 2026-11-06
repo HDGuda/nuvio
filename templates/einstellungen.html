@@ -34,12 +34,12 @@ document.addEventListener('DOMContentLoaded', function() {
 <form method="post" enctype="multipart/form-data">
 {% csrf_token %}
 
-<!-- FIRMENDATEN -->
+<!-- STAMMDATEN -->
 <div class="card">
-    <div class="card-header"><div class="card-titel">Firmendaten</div></div>
+    <div class="card-header"><div class="card-titel">Stammdaten</div></div>
     <div class="card-body">
         <div class="form-reihe">
-            <div class="form-gruppe"><label>Firmenname</label>{{ form.firma_name }}</div>
+            <div class="form-gruppe"><label>Name</label>{{ form.firma_name }}</div>
             <div class="form-gruppe"><label>Zusatz</label>{{ form.firma_zusatz }}</div>
             <div class="form-gruppe"><label>Zusatz 2</label>{{ form.firma_zusatz2 }}</div>
         </div>
@@ -52,32 +52,6 @@ document.addEventListener('DOMContentLoaded', function() {
             <div class="form-gruppe"><label>Telefon</label>{{ form.telefon }}</div>
             <div class="form-gruppe"><label>E-Mail</label>{{ form.email }}</div>
             <div class="form-gruppe"><label>Website</label>{{ form.website }}</div>
-        </div>
-        <div class="form-gruppe">
-            <label>Logo</label>
-            {% if form.instance.logo %}
-            <div style="margin-bottom: 10px;">
-                <img src="{{ form.instance.logo.url }}" style="max-height: 60px; border: 1px solid #eee; padding: 4px; border-radius: 4px;">
-                <div class="text-grau text-klein" style="margin-top: 4px;">Aktuelles Logo – neues Bild hochladen zum Ersetzen</div>
-            </div>
-            {% endif %}
-            {{ form.logo }}
-        </div>
-        <div class="form-gruppe">
-            <label>Hintergrund-PDF</label>
-            {% if form.instance.hintergrund_pdf %}
-            <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 10px;">
-                <a href="{{ form.instance.hintergrund_pdf.url }}" target="_blank"
-                   style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px; color: #333; text-decoration: none; background: #fafafa;">
-                    📄 {{ form.instance.hintergrund_pdf.name|cut:"hintergrund/" }}
-                </a>
-                <div class="text-grau text-klein">Aktuelles Hintergrund-PDF – neue Datei hochladen zum Ersetzen</div>
-            </div>
-            {% endif %}
-            {{ form.hintergrund_pdf }}
-            <div class="text-grau text-klein" style="margin-top: 4px;">
-                Wird als Hintergrund (z.&nbsp;B. Briefpapier) für alle PDF-Ausgaben verwendet. Nur eine Seite nötig – wird für mehrseitige Dokumente wiederholt.
-            </div>
         </div>
     </div>
 </div>
@@ -405,6 +379,17 @@ document.addEventListener('DOMContentLoaded', function() {
             {{ form.email_gutschrift_anhang2 }}
             <div class="text-grau text-klein" style="margin-top: 4px;">Optionaler zweiter Standard-Anhang.</div>
         </div>
+    </div>
+</div>
+
+<!-- ABSENDERPROFILE -->
+<div class="card">
+    <div class="card-header"><div class="card-titel">Absenderprofile</div></div>
+    <div class="card-body">
+        <p style="margin-bottom: 12px; line-height: 1.6;">
+            Logo, Briefkopf, Absenderzeile und Briefpapier je Rolle.
+        </p>
+        <a href="{% url 'absenderprofile_liste' %}" class="btn btn-secondary">Absenderprofile verwalten</a>
     </div>
 </div>
 

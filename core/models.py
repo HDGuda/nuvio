@@ -1,3 +1,4 @@
+from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
 import datetime
@@ -253,6 +254,95 @@ class Einstellungen(models.Model):
 
 
 # ─────────────────────────────────────────────
+#  ABSENDERPROFIL (Darstellung je Rolle, KEIN Mandant)
+# ─────────────────────────────────────────────
+
+class RechnungGesperrt(Exception):
+    """Wird ausgelöst, wenn eine bezahlte (gesperrte) Rechnung geändert werden soll."""
+
+
+class Absenderprofil(models.Model):
+    """
+    Darstellungsprofil für den Aussteller, z. B. "Energieberatung",
+    "Unternehmensberatung", "Redaktion": Briefpapier, Logo, Kopfblöcke und
+    Absenderzeile. Nummernkreise, Steuerdaten, Bank und der
+    Kleinunternehmer-Schalter bleiben global in den Einstellungen.
+    """
+    LOGO_POSITION_CHOICES = [
+        ('links',  'Links'),
+        ('rechts', 'Rechts'),
+    ]
+
+    name            = models.CharField(max_length=100, unique=True, verbose_name='Bezeichnung (intern)')
+    ist_standard    = models.BooleanField(default=False, verbose_name='Standardprofil',
+                                          help_text='Wird bei neuen Rechnungen vorausgewählt. Es gibt genau ein Standardprofil.')
+    firmenname      = models.CharField(max_length=200, blank=True, verbose_name='Firmenname im Dokument',
+                                       help_text='Fettgedruckt im Briefkopf und Platzhalter {{firma}} in E-Mails. '
+                                                 'Leer = Firmenname aus den Einstellungen.')
+    logo            = models.ImageField(upload_to='logo/', blank=True, verbose_name='Logo')
+    logo_position   = models.CharField(max_length=10, choices=LOGO_POSITION_CHOICES, default='rechts',
+                                       verbose_name='Logo-Position')
+    kopf_links      = models.TextField(blank=True, verbose_name='Briefkopf links',
+                                       help_text='Mehrzeilig, z. B. Zusatzzeilen, Straße, Ort, E-Mail.')
+    kopf_rechts     = models.TextField(blank=True, verbose_name='Briefkopf rechts',
+                                       help_text='Mehrzeilig, rechtsbündig. Darf leer sein.')
+    absenderzeile   = models.CharField(max_length=200, blank=True, verbose_name='Absenderzeile über der Empfängeradresse',
+                                       help_text='Kleine Zeile im Adressfenster, z. B. "Name · Straße · PLZ Ort".')
+    hintergrund_pdf = models.FileField(upload_to='hintergrund/', blank=True, null=True, verbose_name='Hintergrund-PDF (Briefpapier)')
+    thunderbird_identitaet = models.CharField(
+        max_length=10, blank=True,
+        validators=[RegexValidator(r'^id\d+$', 'Bitte in der Form id1, id2, id3 … angeben.')],
+        verbose_name='Thunderbird-Identität',
+        help_text='Nummer der Absender-Identität in Thunderbird, z. B. id2. Leer = Standard-Identität.',
+    )
+    unterer_rand_mm = models.PositiveSmallIntegerField(default=28, verbose_name='Unterer Seitenrand mit Briefpapier (mm)',
+                                                       help_text='Muss zur Fußzeile des Briefpapiers passen.')
+
+    class Meta:
+        verbose_name = 'Absenderprofil'
+        verbose_name_plural = 'Absenderprofile'
+        ordering = ['-ist_standard', 'name']
+
+    def __str__(self):
+        return self.name
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.ist_standard:
+            # genau ein Standardprofil
+            Absenderprofil.objects.exclude(pk=self.pk).filter(ist_standard=True).update(ist_standard=False)
+
+    @property
+    def firma_anzeige(self):
+        return self.firmenname or Einstellungen.laden().firma_name
+
+    @classmethod
+    def aus_einstellungen(cls):
+        """Legt das Profil "Standard" aus den bisherigen Firmendaten der Einstellungen an."""
+        e = Einstellungen.laden()
+        ort_zeile = f'{e.plz} {e.ort}'.strip()
+        kopf = '\n'.join(z for z in [e.firma_zusatz, e.firma_zusatz2, e.strasse, ort_zeile, e.email] if z)
+        absender = ' · '.join(t for t in [e.firma_name, e.strasse, ort_zeile] if t)
+        return cls.objects.create(
+            name='Standard',
+            ist_standard=True,
+            firmenname=e.firma_name,
+            logo=e.logo.name if e.logo else '',
+            logo_position='rechts',
+            kopf_links=kopf,
+            absenderzeile=absender,
+            hintergrund_pdf=e.hintergrund_pdf.name if e.hintergrund_pdf else None,
+        )
+
+    @classmethod
+    def standard(cls):
+        """Standardprofil; legt es bei Bedarf aus den Einstellungen an."""
+        return (cls.objects.filter(ist_standard=True).first()
+                or cls.objects.first()
+                or cls.aus_einstellungen())
+
+
+# ─────────────────────────────────────────────
 #  KUNDE
 # ─────────────────────────────────────────────
 
@@ -458,6 +548,15 @@ class Angebot(SummenMixin, models.Model):
                                 verbose_name='Kleinunternehmer (§ 19 UStG) bei Erstellung'
                               )
 
+    # Darstellungsprofil (Briefpapier, Logo, Kopfblöcke); wird bei der Rechnung übernommen
+    absenderprofil          = models.ForeignKey(
+                                Absenderprofil,
+                                null=True, blank=True,
+                                on_delete=models.PROTECT,
+                                related_name='angebote',
+                                verbose_name='Absenderprofil'
+                              )
+
     # Metadaten
     erstellt_am             = models.DateTimeField(auto_now_add=True)
     geaendert_am            = models.DateTimeField(auto_now=True)
@@ -471,10 +570,17 @@ class Angebot(SummenMixin, models.Model):
     def __str__(self):
         return f'{self.nummer} – {self.kunde}'
 
+    @property
+    def profil(self):
+        """Absenderprofil des Angebots; Angebote ohne Zuordnung nutzen das Standardprofil."""
+        return self.absenderprofil or Absenderprofil.standard()
+
     def save(self, *args, **kwargs):
-        # Kleinunternehmer-Status beim Anlegen festhalten
+        # Kleinunternehmer-Status und Absenderprofil beim Anlegen festhalten
         if self._state.adding:
             self.kleinunternehmer = Einstellungen.laden().kleinunternehmer
+            if not self.absenderprofil_id:
+                self.absenderprofil = Absenderprofil.standard()
         # Automatische Nummernvergabe beim ersten Speichern
         if not self.nummer:
             self.nummer = Einstellungen.laden().naechste_angebotsnummer()
@@ -494,6 +600,7 @@ class Angebot(SummenMixin, models.Model):
             betreff         = self.betreff,
             einleitungstext = self.einleitungstext,
             schlusstext     = self.schlusstext,
+            absenderprofil  = self.profil,
             angebot         = self,
         )
         rechnung.save()
@@ -596,10 +703,30 @@ class Rechnung(SummenMixin, models.Model):
                                 verbose_name='Kleinunternehmer (§ 19 UStG) bei Erstellung'
                               )
 
+    # Darstellungsprofil (Briefpapier, Logo, Kopfblöcke); gleicher Nummernkreis für alle Profile
+    absenderprofil          = models.ForeignKey(
+                                Absenderprofil,
+                                null=True, blank=True,
+                                on_delete=models.PROTECT,
+                                related_name='rechnungen',
+                                verbose_name='Absenderprofil'
+                              )
+
+    # GoBD: Ab "Bezahlt" ist die Rechnung unveränderbar. gesperrt_am wird einmalig
+    # gesetzt und nie zurückgenommen (der Status kann sich durch Gutschriften ändern).
+    gesperrt_am             = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Gesperrt am')
+    pdf_archiv              = models.FileField(
+                                upload_to='rechnungen_archiv/', null=True, blank=True, editable=False,
+                                verbose_name='Archiviertes PDF'
+                              )
+
     # Metadaten
     erstellt_am             = models.DateTimeField(auto_now_add=True)
     geaendert_am            = models.DateTimeField(auto_now=True)
     gesendet_am             = models.DateField(null=True, blank=True, verbose_name='Gesendet am')
+
+    # Felder, die auch bei einer gesperrten Rechnung geschrieben werden dürfen
+    SPERRE_ERLAUBT = {'status', 'gesendet_am', 'interne_notizen', 'gesperrt_am', 'pdf_archiv', 'geaendert_am'}
 
     class Meta:
         verbose_name = 'Rechnung'
@@ -610,9 +737,17 @@ class Rechnung(SummenMixin, models.Model):
         return f'{self.nummer} – {self.kunde}'
 
     def save(self, *args, **kwargs):
-        # Kleinunternehmer-Status beim Anlegen festhalten
+        # GoBD-Sperre: eine bezahlte Rechnung darf nur noch Status, Notizen und
+        # Archiv-Felder ändern (z. B. Statuswechsel durch Gutschriften)
+        if self.ist_gesperrt and not self._state.adding:
+            felder = kwargs.get('update_fields')
+            if felder is None or not set(felder) <= self.SPERRE_ERLAUBT:
+                raise RechnungGesperrt(f'Rechnung {self.nummer} ist bezahlt und gesperrt.')
+        # Kleinunternehmer-Status und Absenderprofil beim Anlegen festhalten
         if self._state.adding:
             self.kleinunternehmer = Einstellungen.laden().kleinunternehmer
+            if not self.absenderprofil_id:
+                self.absenderprofil = Absenderprofil.standard()
         if not self.nummer:
             self.nummer = Einstellungen.laden().naechste_rechnungsnummer()
         if not self.einleitungstext:
@@ -622,6 +757,32 @@ class Rechnung(SummenMixin, models.Model):
         if not self.zahlungsbedingungen:
             self.zahlungsbedingungen = Einstellungen.laden().zahlungsbedingungen
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.ist_gesperrt:
+            raise RechnungGesperrt(f'Rechnung {self.nummer} ist bezahlt und gesperrt.')
+        return super().delete(*args, **kwargs)
+
+    @property
+    def ist_gesperrt(self):
+        return self.gesperrt_am is not None
+
+    @property
+    def profil(self):
+        """Absenderprofil der Rechnung; Rechnungen ohne Zuordnung nutzen das Standardprofil."""
+        return self.absenderprofil or Absenderprofil.standard()
+
+    def sperren_falls_bezahlt(self):
+        """
+        Setzt die dauerhafte Sperre, sobald der Status "Bezahlt" ist.
+        Gibt True zurück, wenn die Rechnung dadurch neu gesperrt wurde.
+        Aufruf nach dem Speichern von Rechnung UND Positionen.
+        """
+        if self.status == 'bezahlt' and self.gesperrt_am is None:
+            self.gesperrt_am = timezone.now()
+            self.save(update_fields=['gesperrt_am'])
+            return True
+        return False
 
     @property
     def bezahlt_summe(self):
@@ -640,7 +801,7 @@ class Rechnung(SummenMixin, models.Model):
         gutschriften = self.gutschriften.exclude(status='storniert')
         if not gutschriften.exists():
             if self.status in ('storniert', 'teilgutgeschrieben'):
-                self.status = 'gesendet'
+                self.status = 'bezahlt' if self.ist_gesperrt else 'gesendet'
                 self.save(update_fields=['status'])
             return
         gutschrift_summe = sum(g.brutto for g in gutschriften)
@@ -692,6 +853,16 @@ class RechnungPosition(models.Model):
 
     def __str__(self):
         return f'{self.bezeichnung} ({self.menge} × {self.einzelpreis} €)'
+
+    def save(self, *args, **kwargs):
+        if self.rechnung.ist_gesperrt:
+            raise RechnungGesperrt(f'Rechnung {self.rechnung.nummer} ist bezahlt und gesperrt.')
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.rechnung.ist_gesperrt:
+            raise RechnungGesperrt(f'Rechnung {self.rechnung.nummer} ist bezahlt und gesperrt.')
+        return super().delete(*args, **kwargs)
 
     @property
     def einzelpreis_netto(self):
@@ -748,6 +919,15 @@ class Gutschrift(SummenMixin, models.Model):
                                 verbose_name='Kleinunternehmer (§ 19 UStG) bei Erstellung'
                               )
 
+    # Darstellungsprofil: eine Gutschrift zu einer Rechnung übernimmt deren Profil
+    absenderprofil          = models.ForeignKey(
+                                Absenderprofil,
+                                null=True, blank=True,
+                                on_delete=models.PROTECT,
+                                related_name='gutschriften',
+                                verbose_name='Absenderprofil'
+                              )
+
     erstellt_am             = models.DateTimeField(auto_now_add=True)
     geaendert_am            = models.DateTimeField(auto_now=True)
 
@@ -767,9 +947,18 @@ class Gutschrift(SummenMixin, models.Model):
                 self.kleinunternehmer = self.rechnung.kleinunternehmer
             else:
                 self.kleinunternehmer = Einstellungen.laden().kleinunternehmer
+            if not self.absenderprofil_id:
+                self.absenderprofil = self.rechnung.profil if self.rechnung_id else Absenderprofil.standard()
         if not self.nummer:
             self.nummer = Einstellungen.laden().naechste_gutschriftnummer()
         super().save(*args, **kwargs)
+
+    @property
+    def profil(self):
+        """Absenderprofil der Gutschrift; ohne Zuordnung das der Rechnung bzw. das Standardprofil."""
+        if self.absenderprofil_id:
+            return self.absenderprofil
+        return self.rechnung.profil if self.rechnung_id else Absenderprofil.standard()
 
     def delete(self, *args, **kwargs):
         rechnung = self.rechnung
