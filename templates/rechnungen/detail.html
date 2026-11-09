@@ -29,7 +29,7 @@
                 <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ rechnung.status }}">{{ rechnung.get_status_display }}</span></td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Absender</td><td>{{ rechnung.profil.name }}</td></tr>
                 {% if rechnung.ist_gesperrt %}
-                <tr><td style="color: #999; padding: 6px 0;">Gesperrt</td><td>seit {{ rechnung.gesperrt_am|date:"d.m.Y" }} (bezahlt, GoBD) – Korrektur nur per Gutschrift</td></tr>
+                <tr><td style="color: #999; padding: 6px 0;">Gesperrt</td><td>seit {{ rechnung.gesperrt_am|date:"d.m.Y" }} (versendet, GoBD) – Korrektur nur per Gutschrift</td></tr>
                 {% endif %}
                 {% if rechnung.kleinunternehmer %}
                 <tr><td style="color: #999; padding: 6px 0;">Steuer</td><td>Kleinunternehmer (§&nbsp;19&nbsp;UStG)</td></tr>
@@ -228,6 +228,7 @@
         </table>
         {% endif %}
 
+        {% if rechnung.offener_betrag > 0 %}
         <form method="post" action="{% url 'rechnung_zahlungseingang' rechnung.pk %}">
             {% csrf_token %}
             <div style="display: grid; grid-template-columns: 1fr 1fr auto; gap: 16px; align-items: end;">
@@ -248,6 +249,9 @@
                 Bei Teilzahlung wird Status auf „Teilbezahlt" gesetzt, bei vollem Betrag auf „Bezahlt".
             </div>
         </form>
+        {% elif not rechnung.zahlungen.exists %}
+        <div style="font-size: 13px; color: #999;">Kein offener Betrag – es ist kein Zahlungseingang zu erfassen.</div>
+        {% endif %}
 
     </div>
 </div>

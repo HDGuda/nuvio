@@ -1,0 +1,34 @@
+{% extends 'pdf_basis.html' %}
+{% load nuvio_filters %}
+
+{% block extra_css %}
+    /* ── BEZUG ZUR RECHNUNG ── */
+    .rechnung-bezug {
+        margin-bottom: 16px;
+        font-size: 11px;
+        color: #888;
+        padding: 8px 14px;
+        background: #f8f7f4;
+        border-left: 3px solid #c8a96e;
+    }
+{% endblock %}
+
+{% block doc_titel %}Gutschrift{% endblock %}
+
+{% block meta_zeilen %}
+            {% if gutschrift.rechnung %}
+            <tr><td>Zu Rechnung</td><td>{{ gutschrift.rechnung.nummer }}</td></tr>
+            {% endif %}
+{% endblock %}
+
+{% block vor_betreff %}
+      <!-- BEZUG ZUR RECHNUNG -->
+      {% if gutschrift.rechnung %}
+      <div class="rechnung-bezug">
+        Diese Gutschrift bezieht sich auf Rechnung <strong>{{ gutschrift.rechnung.nummer }}</strong>
+        vom {{ gutschrift.rechnung.datum|datum_de }}.
+      </div>
+      {% endif %}
+{% endblock %}
+
+{% block summen_label %}Gutschriftbetrag{% endblock %}

@@ -88,8 +88,6 @@ class Einstellungen(models.Model):
     telefon                 = models.CharField(max_length=50, blank=True, verbose_name='Telefon')
     email                   = models.EmailField(blank=True, verbose_name='E-Mail')
     website                 = models.URLField(blank=True, verbose_name='Website')
-    logo                    = models.ImageField(upload_to='logo/', blank=True, verbose_name='Logo')
-    hintergrund_pdf         = models.FileField(upload_to='hintergrund/', blank=True, null=True, verbose_name='Hintergrund-PDF')
 
     # Steuer
     steuernummer            = models.CharField(max_length=50, blank=True, verbose_name='Steuernummer')
@@ -258,7 +256,11 @@ class Einstellungen(models.Model):
 # ─────────────────────────────────────────────
 
 class RechnungGesperrt(Exception):
-    """Wird ausgelöst, wenn eine bezahlte (gesperrte) Rechnung geändert werden soll."""
+    """Wird ausgelöst, wenn eine versendete (gesperrte) Rechnung geändert werden soll."""
+
+
+class GutschriftGesperrt(RechnungGesperrt):
+    """Wird ausgelöst, wenn eine versendete (gesperrte) Gutschrift geändert werden soll."""
 
 
 class Absenderprofil(models.Model):
@@ -327,11 +329,9 @@ class Absenderprofil(models.Model):
             name='Standard',
             ist_standard=True,
             firmenname=e.firma_name,
-            logo=e.logo.name if e.logo else '',
             logo_position='rechts',
             kopf_links=kopf,
             absenderzeile=absender,
-            hintergrund_pdf=e.hintergrund_pdf.name if e.hintergrund_pdf else None,
         )
 
     @classmethod
@@ -439,7 +439,31 @@ class Artikel(models.Model):
         ordering = ['bezeichnung']
 
     def __str__(self):
+        if self.is_bundle:
+            return f'{self.bezeichnung} (Bundle)'
         return f'{self.bezeichnung} ({self.einzelpreis} €)'
+
+    def aktive_bundle_positionen(self):
+        """
+        Unter-Artikel, die tatsächlich zum Bundle zählen: inaktive (gelöschte) Artikel
+        werden weder in den Preis eingerechnet noch beim Einfügen in ein Angebot übernommen.
+        """
+        return [bp for bp in self.bundle_positionen.all() if bp.artikel.aktiv]
+
+    @property
+    def preis(self):
+        """
+        Bruttopreis des Artikels. Bei Bundles wird er berechnet (Summe aus Menge × Einzelpreis
+        der aktiven Unter-Artikel, je Position auf Cent gerundet wie im Angebot); das Feld
+        `einzelpreis` wird bei Bundles nicht verwendet.
+        """
+        if not self.is_bundle:
+            return self.einzelpreis
+        summe = sum(
+            (round(bp.menge * bp.artikel.einzelpreis, 2) for bp in self.aktive_bundle_positionen()),
+            Decimal('0'),
+        )
+        return summe.quantize(Decimal('0.01'))
 
 
 # ─────────────────────────────────────────────
@@ -712,8 +736,9 @@ class Rechnung(SummenMixin, models.Model):
                                 verbose_name='Absenderprofil'
                               )
 
-    # GoBD: Ab "Bezahlt" ist die Rechnung unveränderbar. gesperrt_am wird einmalig
-    # gesetzt und nie zurückgenommen (der Status kann sich durch Gutschriften ändern).
+    # GoBD: Ab "Gesendet" (jeder Status außer "Entwurf") ist die Rechnung unveränderbar.
+    # gesperrt_am wird einmalig gesetzt und nie zurückgenommen (der Status kann sich
+    # durch Zahlungen und Gutschriften ändern).
     gesperrt_am             = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Gesperrt am')
     pdf_archiv              = models.FileField(
                                 upload_to='rechnungen_archiv/', null=True, blank=True, editable=False,
@@ -737,12 +762,12 @@ class Rechnung(SummenMixin, models.Model):
         return f'{self.nummer} – {self.kunde}'
 
     def save(self, *args, **kwargs):
-        # GoBD-Sperre: eine bezahlte Rechnung darf nur noch Status, Notizen und
+        # GoBD-Sperre: eine versendete Rechnung darf nur noch Status, Notizen und
         # Archiv-Felder ändern (z. B. Statuswechsel durch Gutschriften)
         if self.ist_gesperrt and not self._state.adding:
             felder = kwargs.get('update_fields')
             if felder is None or not set(felder) <= self.SPERRE_ERLAUBT:
-                raise RechnungGesperrt(f'Rechnung {self.nummer} ist bezahlt und gesperrt.')
+                raise RechnungGesperrt(f'Rechnung {self.nummer} ist versendet und gesperrt.')
         # Kleinunternehmer-Status und Absenderprofil beim Anlegen festhalten
         if self._state.adding:
             self.kleinunternehmer = Einstellungen.laden().kleinunternehmer
@@ -760,7 +785,7 @@ class Rechnung(SummenMixin, models.Model):
 
     def delete(self, *args, **kwargs):
         if self.ist_gesperrt:
-            raise RechnungGesperrt(f'Rechnung {self.nummer} ist bezahlt und gesperrt.')
+            raise RechnungGesperrt(f'Rechnung {self.nummer} ist versendet und gesperrt.')
         return super().delete(*args, **kwargs)
 
     @property
@@ -772,13 +797,14 @@ class Rechnung(SummenMixin, models.Model):
         """Absenderprofil der Rechnung; Rechnungen ohne Zuordnung nutzen das Standardprofil."""
         return self.absenderprofil or Absenderprofil.standard()
 
-    def sperren_falls_bezahlt(self):
+    def sperren_falls_versendet(self):
         """
-        Setzt die dauerhafte Sperre, sobald der Status "Bezahlt" ist.
+        Setzt die dauerhafte Sperre, sobald der Status nicht mehr "Entwurf" ist
+        (also ab "Gesendet", auch bei manueller Statusänderung).
         Gibt True zurück, wenn die Rechnung dadurch neu gesperrt wurde.
         Aufruf nach dem Speichern von Rechnung UND Positionen.
         """
-        if self.status == 'bezahlt' and self.gesperrt_am is None:
+        if self.status != 'entwurf' and self.gesperrt_am is None:
             self.gesperrt_am = timezone.now()
             self.save(update_fields=['gesperrt_am'])
             return True
@@ -797,11 +823,23 @@ class Rechnung(SummenMixin, models.Model):
     def offener_betrag(self):
         return round(self.brutto - self.bezahlt_summe - self.gutschrift_summe, 2)
 
+    def _status_nach_zahlungen(self):
+        """Status ohne Gutschriften: aus den erfassten Zahlungen abgeleitet."""
+        summe = self.bezahlt_summe
+        if summe > 0 and summe >= self.brutto:
+            return 'bezahlt'
+        if summe > 0:
+            return 'teilbezahlt'
+        return 'gesendet'
+
     def gutschrift_status_aktualisieren(self):
+        # Ein Entwurf wurde nie versendet: sein Status bleibt von Gutschriften unberührt
+        if not self.ist_gesperrt:
+            return
         gutschriften = self.gutschriften.exclude(status='storniert')
         if not gutschriften.exists():
             if self.status in ('storniert', 'teilgutgeschrieben'):
-                self.status = 'bezahlt' if self.ist_gesperrt else 'gesendet'
+                self.status = self._status_nach_zahlungen()
                 self.save(update_fields=['status'])
             return
         gutschrift_summe = sum(g.brutto for g in gutschriften)
@@ -856,12 +894,12 @@ class RechnungPosition(models.Model):
 
     def save(self, *args, **kwargs):
         if self.rechnung.ist_gesperrt:
-            raise RechnungGesperrt(f'Rechnung {self.rechnung.nummer} ist bezahlt und gesperrt.')
+            raise RechnungGesperrt(f'Rechnung {self.rechnung.nummer} ist versendet und gesperrt.')
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         if self.rechnung.ist_gesperrt:
-            raise RechnungGesperrt(f'Rechnung {self.rechnung.nummer} ist bezahlt und gesperrt.')
+            raise RechnungGesperrt(f'Rechnung {self.rechnung.nummer} ist versendet und gesperrt.')
         return super().delete(*args, **kwargs)
 
     @property
@@ -928,8 +966,18 @@ class Gutschrift(SummenMixin, models.Model):
                                 verbose_name='Absenderprofil'
                               )
 
+    # GoBD: Ab "Gesendet" (jeder Status außer "Entwurf") ist die Gutschrift unveränderbar.
+    gesperrt_am             = models.DateTimeField(null=True, blank=True, editable=False, verbose_name='Gesperrt am')
+    pdf_archiv              = models.FileField(
+                                upload_to='gutschriften_archiv/', null=True, blank=True, editable=False,
+                                verbose_name='Archiviertes PDF'
+                              )
+
     erstellt_am             = models.DateTimeField(auto_now_add=True)
     geaendert_am            = models.DateTimeField(auto_now=True)
+
+    # Felder, die auch bei einer gesperrten Gutschrift geschrieben werden dürfen
+    SPERRE_ERLAUBT = {'status', 'interne_notizen', 'gesperrt_am', 'pdf_archiv', 'geaendert_am'}
 
     class Meta:
         verbose_name = 'Gutschrift'
@@ -940,6 +988,12 @@ class Gutschrift(SummenMixin, models.Model):
         return f'{self.nummer} – {self.kunde}'
 
     def save(self, *args, **kwargs):
+        # GoBD-Sperre: eine versendete Gutschrift darf nur noch Status, Notizen und
+        # Archiv-Felder ändern
+        if self.ist_gesperrt and not self._state.adding:
+            felder = kwargs.get('update_fields')
+            if felder is None or not set(felder) <= self.SPERRE_ERLAUBT:
+                raise GutschriftGesperrt(f'Gutschrift {self.nummer} ist versendet und gesperrt.')
         # Kleinunternehmer-Status beim Anlegen festhalten; eine Gutschrift zu einer
         # Rechnung übernimmt den Status der Rechnung (gleiche Steuerbehandlung)
         if self._state.adding:
@@ -961,10 +1015,28 @@ class Gutschrift(SummenMixin, models.Model):
         return self.rechnung.profil if self.rechnung_id else Absenderprofil.standard()
 
     def delete(self, *args, **kwargs):
+        if self.ist_gesperrt:
+            raise GutschriftGesperrt(f'Gutschrift {self.nummer} ist versendet und gesperrt.')
         rechnung = self.rechnung
         super().delete(*args, **kwargs)
         if rechnung:
             rechnung.gutschrift_status_aktualisieren()
+
+    @property
+    def ist_gesperrt(self):
+        return self.gesperrt_am is not None
+
+    def sperren_falls_versendet(self):
+        """
+        Setzt die dauerhafte Sperre, sobald der Status nicht mehr "Entwurf" ist.
+        Gibt True zurück, wenn die Gutschrift dadurch neu gesperrt wurde.
+        Aufruf nach dem Speichern von Gutschrift UND Positionen.
+        """
+        if self.status != 'entwurf' and self.gesperrt_am is None:
+            self.gesperrt_am = timezone.now()
+            self.save(update_fields=['gesperrt_am'])
+            return True
+        return False
 
 
 # ─────────────────────────────────────────────
@@ -989,6 +1061,16 @@ class GutschriftPosition(models.Model):
 
     def __str__(self):
         return f'{self.bezeichnung} ({self.menge} × {self.einzelpreis} €)'
+
+    def save(self, *args, **kwargs):
+        if self.gutschrift.ist_gesperrt:
+            raise GutschriftGesperrt(f'Gutschrift {self.gutschrift.nummer} ist versendet und gesperrt.')
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        if self.gutschrift.ist_gesperrt:
+            raise GutschriftGesperrt(f'Gutschrift {self.gutschrift.nummer} ist versendet und gesperrt.')
+        return super().delete(*args, **kwargs)
 
     @property
     def einzelpreis_netto(self):

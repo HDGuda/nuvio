@@ -1,38 +1,24 @@
 {% extends "base.html" %}
 
-{% block titel %}Einstellungen – Nuvio
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    editorInit('editor-angebot-einleitung',  'id_angebot_einleitung','{{ form.angebot_einleitung.value|default:""|escapejs }}');
-    editorInit('editor-angebot-schluss',     'id_angebot_schlusstext', '{{ form.angebot_schlusstext.value|default:""|escapejs }}');
-    editorInit('editor-rechnung-einleitung', 'id_rechnung_einleitung', '{{ form.rechnung_einleitung.value|default:""|escapejs }}');
-    editorInit('editor-rechnung-schluss',    'id_rechnung_schlusstext','{{ form.rechnung_schlusstext.value|default:""|escapejs }}');
-    editorInit('editor-zahlungsbedingungen', 'id_zahlungsbedingungen', '{{ form.zahlungsbedingungen.value|default:""|escapejs }}');
-    editorInit('editor-email-angebot-text',    'id_email_angebot_text',    '{{ form.email_angebot_text.value|default:""|escapejs }}');
-    editorInit('editor-email-rechnung-text',   'id_email_rechnung_text',   '{{ form.email_rechnung_text.value|default:""|escapejs }}');
-    editorInit('editor-email-gutschrift-text', 'id_email_gutschrift_text', '{{ form.email_gutschrift_text.value|default:""|escapejs }}');
-});
-</script>
-{% endblock %}
-{% block seitentitel %}Einstellungen
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    editorInit('editor-angebot-einleitung',  'id_angebot_einleitung','{{ form.angebot_einleitung.value|default:""|escapejs }}');
-    editorInit('editor-angebot-schluss',     'id_angebot_schlusstext', '{{ form.angebot_schlusstext.value|default:""|escapejs }}');
-    editorInit('editor-rechnung-einleitung', 'id_rechnung_einleitung', '{{ form.rechnung_einleitung.value|default:""|escapejs }}');
-    editorInit('editor-rechnung-schluss',    'id_rechnung_schlusstext','{{ form.rechnung_schlusstext.value|default:""|escapejs }}');
-    editorInit('editor-zahlungsbedingungen', 'id_zahlungsbedingungen', '{{ form.zahlungsbedingungen.value|default:""|escapejs }}');
-    editorInit('editor-email-angebot-text',    'id_email_angebot_text',    '{{ form.email_angebot_text.value|default:""|escapejs }}');
-    editorInit('editor-email-rechnung-text',   'id_email_rechnung_text',   '{{ form.email_rechnung_text.value|default:""|escapejs }}');
-    editorInit('editor-email-gutschrift-text', 'id_email_gutschrift_text', '{{ form.email_gutschrift_text.value|default:""|escapejs }}');
-});
-</script>
-{% endblock %}
+{% block titel %}Einstellungen – Nuvio{% endblock %}
+{% block seitentitel %}Einstellungen{% endblock %}
 
 {% block inhalt %}
 
 <form method="post" enctype="multipart/form-data">
 {% csrf_token %}
+
+<!-- REITER -->
+<div class="tabs" role="tablist" aria-label="Einstellungen">
+    <button type="button" class="tab aktiv" role="tab" id="tab-stammdaten" data-tab="stammdaten" aria-controls="panel-stammdaten" aria-selected="true">Stammdaten</button>
+    <button type="button" class="tab" role="tab" id="tab-nummernkreise" data-tab="nummernkreise" aria-controls="panel-nummernkreise" aria-selected="false" tabindex="-1">Nummernkreise</button>
+    <button type="button" class="tab" role="tab" id="tab-standardtexte" data-tab="standardtexte" aria-controls="panel-standardtexte" aria-selected="false" tabindex="-1">Standardtexte</button>
+    <button type="button" class="tab" role="tab" id="tab-email-vorlagen" data-tab="email-vorlagen" aria-controls="panel-email-vorlagen" aria-selected="false" tabindex="-1">E-Mail-Vorlagen</button>
+    <button type="button" class="tab" role="tab" id="tab-profile" data-tab="profile" data-ohne-speichern aria-controls="panel-profile" aria-selected="false" tabindex="-1">Profile</button>
+    <button type="button" class="tab" role="tab" id="tab-sicherung" data-tab="sicherung" data-ohne-speichern aria-controls="panel-sicherung" aria-selected="false" tabindex="-1">Sicherung</button>
+</div>
+
+<section class="tab-panel aktiv" role="tabpanel" id="panel-stammdaten" aria-labelledby="tab-stammdaten">
 
 <!-- STAMMDATEN -->
 <div class="card">
@@ -84,6 +70,10 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-nummernkreise" aria-labelledby="tab-nummernkreise">
+
 <!-- NUMMERNKREISE -->
 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
     <div class="card">
@@ -128,6 +118,10 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-standardtexte" aria-labelledby="tab-standardtexte">
 
 <!-- STANDARDTEXTE ANGEBOTE -->
 <div class="card">
@@ -241,6 +235,10 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
+
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-email-vorlagen" aria-labelledby="tab-email-vorlagen">
 
 <!-- E-MAIL-VORLAGEN ANGEBOT -->
 <div class="card">
@@ -382,36 +380,61 @@ document.addEventListener('DOMContentLoaded', function() {
     </div>
 </div>
 
-<!-- ABSENDERPROFILE -->
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-profile" aria-labelledby="tab-profile">
+
 <div class="card">
     <div class="card-header"><div class="card-titel">Absenderprofile</div></div>
     <div class="card-body">
-        <p style="margin-bottom: 12px; line-height: 1.6;">
+        <p style="margin: 0 0 14px 0; line-height: 1.6; color: #555; font-size: 14px;">
             Logo, Briefkopf, Absenderzeile und Briefpapier je Rolle.
         </p>
         <a href="{% url 'absenderprofile_liste' %}" class="btn btn-secondary">Absenderprofile verwalten</a>
     </div>
 </div>
 
-<!-- DATENSICHERUNG -->
+</section>
+
+<section class="tab-panel" role="tabpanel" id="panel-sicherung" aria-labelledby="tab-sicherung">
+
 <div class="card">
     <div class="card-header"><div class="card-titel">Datensicherung</div></div>
     <div class="card-body">
-        <p style="margin: 0 0 14px 0; color: #555; font-size: 14px;">
-            Erstellt einen ZIP-Download mit der Datenbank und allen hochgeladenen Dateien (Logo, Hintergrund-PDF, E-Mail-Anhänge).
+        <p style="margin: 0 0 14px 0; color: #555; font-size: 14px; line-height: 1.6;">
+            Erstellt einen ZIP-Download mit der Datenbank und allen hochgeladenen und archivierten Dateien:
+            Logo, Hintergrund-PDF, E-Mail-Anhänge sowie die archivierten PDFs versendeter Rechnungen und Gutschriften.
         </p>
         <a href="{% url 'datensicherung' %}" class="btn btn-secondary">
-            🗄️ Datensicherung herunterladen
+            🗄️ Daten sichern
         </a>
     </div>
 </div>
 
+</section>
+
 <!-- SPEICHERN -->
-<div style="display: flex; gap: 10px;">
+<div id="speichern-leiste" style="display: flex; gap: 10px;">
     <button type="submit" class="btn btn-primary">Einstellungen speichern</button>
 </div>
 
 </form>
+
+<style>
+    /* Reiter */
+    .tabs { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 24px; border-bottom: 2px solid #e6e3dc; }
+    .tab { appearance: none; background: none; border: none; border-bottom: 3px solid transparent; margin-bottom: -2px;
+           padding: 10px 18px; font: inherit; font-size: 14px; font-weight: 500; color: #888; cursor: pointer;
+           border-radius: 6px 6px 0 0; transition: color .15s, background .15s, border-color .15s; }
+    .tab:hover { color: #1a1a2e; background: #f8f7f4; }
+    .tab.aktiv { color: #1a1a2e; font-weight: 600; border-bottom-color: #c8a96e; }
+    .tab:focus-visible { outline: 2px solid #c8a96e; outline-offset: -2px; }
+    .tab-panel { display: none; }
+    .tab-panel.aktiv { display: block; }
+    @media (max-width: 700px) {
+        .tab { padding: 8px 12px; font-size: 13px; }
+    }
+</style>
 
 <style>
     .editor-toolbar { display: flex; gap: 4px; padding: 6px 8px; background: #f5f5f5; border: 1px solid #ddd; border-bottom: none; border-radius: 4px 4px 0 0; }
@@ -518,4 +541,62 @@ document.addEventListener('DOMContentLoaded', function() {
     editorInit('editor-email-gutschrift-text', 'id_email_gutschrift_text', '{{ form.email_gutschrift_text.value|default:""|escapejs }}');
 });
 </script>
+
+<script>
+/* Reiter: Auswahl wird gemerkt (auch nach dem Speichern) und per #Name direkt ansteuerbar */
+(function () {
+    var KEY = 'nuvio_einstellungen_tab';
+    var tabs = Array.from(document.querySelectorAll('.tabs .tab'));
+    var panels = Array.from(document.querySelectorAll('.tab-panel'));
+    var leiste = document.getElementById('speichern-leiste');
+    if (!tabs.length) return;
+
+    function aktivieren(name, fokus) {
+        if (!tabs.some(function (t) { return t.dataset.tab === name; })) name = tabs[0].dataset.tab;
+        tabs.forEach(function (t) {
+            var an = t.dataset.tab === name;
+            t.classList.toggle('aktiv', an);
+            t.setAttribute('aria-selected', an ? 'true' : 'false');
+            t.tabIndex = an ? 0 : -1;
+            if (an) {
+                if (leiste) leiste.style.display = t.hasAttribute('data-ohne-speichern') ? 'none' : 'flex';
+                if (fokus) t.focus();
+            }
+        });
+        panels.forEach(function (p) { p.classList.toggle('aktiv', p.id === 'panel-' + name); });
+        try { sessionStorage.setItem(KEY, name); } catch (e) {}
+        if (history.replaceState) history.replaceState(null, '', '#' + name);
+    }
+
+    tabs.forEach(function (t, i) {
+        t.addEventListener('click', function () { aktivieren(t.dataset.tab, false); });
+        t.addEventListener('keydown', function (e) {
+            var ziel = null;
+            if (e.key === 'ArrowRight') ziel = tabs[(i + 1) % tabs.length];
+            if (e.key === 'ArrowLeft')  ziel = tabs[(i - 1 + tabs.length) % tabs.length];
+            if (e.key === 'Home') ziel = tabs[0];
+            if (e.key === 'End')  ziel = tabs[tabs.length - 1];
+            if (ziel) { e.preventDefault(); aktivieren(ziel.dataset.tab, true); }
+        });
+    });
+
+    /* Startreiter: Fehler im Formular > #Name in der URL > zuletzt benutzter Reiter > erster Reiter */
+    var start = null;
+    var fehler = document.querySelector('.tab-panel .errorlist');
+    if (fehler) start = fehler.closest('.tab-panel').id.replace('panel-', '');
+    if (!start && location.hash) start = location.hash.slice(1);
+    if (!start) { try { start = sessionStorage.getItem(KEY); } catch (e) {} }
+    aktivieren(start || tabs[0].dataset.tab, false);
+
+    /* Pflichtfeld in einem verborgenen Reiter: dorthin wechseln, damit die Meldung sichtbar wird */
+    var formular = document.querySelector('form');
+    if (formular) {
+        formular.addEventListener('invalid', function (e) {
+            var p = e.target.closest('.tab-panel');
+            if (p) aktivieren(p.id.replace('panel-', ''), false);
+        }, true);
+    }
+})();
+</script>
+
 {% endblock %}

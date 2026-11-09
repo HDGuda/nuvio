@@ -42,6 +42,8 @@
     .bundle-kind td { background: #faf9f6; font-size: 13px; }
     .bundle-kind td:first-child { padding-left: 52px; }
     .bundle-kind .menge { color: var(--text-mid); margin-right: 4px; }
+    .bundle-kind.bundle-inaktiv td { color: #aaa; text-decoration: line-through; }
+    .bundle-kind.bundle-inaktiv td .inaktiv-hinweis { text-decoration: none; display: inline-block; margin-left: 6px; font-size: 11px; }
     .tabelle tbody.artikel-gruppe + tbody.artikel-gruppe td {
         border-top: 2px solid #c2bdb3;
     }
@@ -82,7 +84,7 @@
                     </td>
                     <td class="text-grau">{{ a.beschreibung|default:"–" }}</td>
                     <td>{{ a.einheit }}</td>
-                    <td class="text-rechts">{{ a.einzelpreis }} €</td>
+                    <td class="text-rechts">{{ a.preis }} €{% if a.is_bundle %}<br><span class="text-grau" style="font-size: 11px;">berechnet</span>{% endif %}</td>
                     <td class="text-rechts">{{ a.steuersatz }} %</td>
                     <td>
                         <div style="display: flex; gap: 6px;">
@@ -93,8 +95,8 @@
                 </tr>
                 {% if a.is_bundle %}
                     {% for bp in a.bundle_positionen.all %}
-                    <tr class="bundle-kind bundle-{{ a.pk }}" hidden>
-                        <td><span class="menge">{{ bp.menge|floatformat:"-2" }} ×</span>{{ bp.artikel.bezeichnung }}</td>
+                    <tr class="bundle-kind bundle-{{ a.pk }}{% if not bp.artikel.aktiv %} bundle-inaktiv{% endif %}" hidden>
+                        <td><span class="menge">{{ bp.menge|floatformat:"-2" }} ×</span>{{ bp.artikel.bezeichnung }}{% if not bp.artikel.aktiv %}<span class="inaktiv-hinweis">inaktiv – nicht im Preis</span>{% endif %}</td>
                         <td class="text-grau">{{ bp.artikel.beschreibung|default:"–" }}</td>
                         <td>{{ bp.artikel.einheit }}</td>
                         <td class="text-rechts">{{ bp.artikel.einzelpreis }} €</td>

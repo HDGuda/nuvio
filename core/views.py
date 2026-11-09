@@ -29,6 +29,8 @@ from .forms import (
 
 from io import BytesIO
 import os
+import sqlite3
+import tempfile
 import zipfile
 from datetime import datetime
 from django.conf import settings
@@ -68,15 +70,14 @@ def pdf_mit_hintergrund(pdf_bytes, hintergrund_file):
     """
     try:
         from pypdf import PdfWriter, PdfReader
-        import copy
         hintergrund = PdfReader(hintergrund_file.path)
         vordergrund = PdfReader(BytesIO(pdf_bytes))
         writer = PdfWriter()
         for i, inhalt_seite in enumerate(vordergrund.pages):
             bg_index = min(i, len(hintergrund.pages) - 1)
-            seite = copy.copy(inhalt_seite)
+            # Seite zuerst dem Writer zuordnen, dann mergen (ab pypdf 7 vorgeschrieben)
+            seite = writer.add_page(inhalt_seite)
             seite.merge_page(hintergrund.pages[bg_index], over=False)
-            writer.add_page(seite)
         output = BytesIO()
         writer.write(output)
         return output.getvalue()
@@ -114,7 +115,6 @@ def seitennummern_einstempeln(pdf_bytes, y_position=686, y_folgeseiten=None, unt
         from pypdf import PdfWriter, PdfReader
         from reportlab.pdfgen import canvas
         from reportlab.lib.pagesizes import A4
-        import copy
         reader = PdfReader(BytesIO(pdf_bytes))
         total = len(reader.pages)
         writer = PdfWriter()
@@ -165,40 +165,14 @@ def seitennummern_einstempeln(pdf_bytes, y_position=686, y_folgeseiten=None, unt
             c.save()
             overlay_buffer.seek(0)
             overlay = PdfReader(overlay_buffer).pages[0]
-            page_copy = copy.copy(page)
-            page_copy.merge_page(overlay, over=True)
-            writer.add_page(page_copy)
+            # Seite zuerst dem Writer zuordnen, dann mergen (ab pypdf 7 vorgeschrieben)
+            page_neu = writer.add_page(page)
+            page_neu.merge_page(overlay, over=True)
         output = BytesIO()
         writer.write(output)
         return output.getvalue()
     except Exception:
         return pdf_bytes
-
-
-def _seiten_y_gutschrift(zeilen_vor_seite):
-    """
-    Wie _seiten_y, aber kalibriert für Gutschriften.
-    Basis: 2 Zeilen (Nummer, Datum) → y=669.
-    """
-    basis_zeilen = 2
-    basis_y = 700.5
-    zeilen_hoehe = 15
-    extra = zeilen_vor_seite - basis_zeilen
-    return basis_y - (extra * zeilen_hoehe)
-
-
-def _seiten_y(zeilen_vor_seite):
-    """
-    Berechnet die reportlab-Y-Koordinate der 'Seite'-Zeile.
-    Kalibriert am funktionierenden Angebot mit BAFA-Nummer:
-      y=686 bei 3 Zeilen vor 'Seite' (Nummer, Datum, BAFA-Nummer).
-    Jede Zeile weniger → +16.5pt (eine Zeilenhöhe nach oben).
-    """
-    basis_zeilen = 3  # Angebot mit BAFA: Nummer, Datum, BAFA-Nummer
-    basis_y = 686
-    zeilen_hoehe = 16.5
-    extra = zeilen_vor_seite - basis_zeilen
-    return basis_y - (extra * zeilen_hoehe)
 
 
 # ─────────────────────────────────────────────
@@ -228,6 +202,7 @@ def _dokument_pdf_rendern(request, template, name, objekt, zeilen):
     profil = objekt.profil
     html = render_to_string(template, {
         name: objekt,
+        'dokument': objekt,   # einheitlicher Name für templates/pdf_basis.html
         'einstellungen': einstellungen,
         'profil': profil,
         'logo_data_uri': _logo_data_uri(profil.logo),
@@ -248,17 +223,17 @@ def _dokument_pdf_rendern(request, template, name, objekt, zeilen):
 
 def _rechnung_pdf_neu_rendern(request, rechnung):
     zeilen = 2 + (1 if rechnung.faellig_am else 0)
-    return _dokument_pdf_rendern(request, 'rechnungen/pdf.html', 'rechnung', rechnung, zeilen)
+    return _dokument_pdf_rendern(request, 'rechnungen/pdf_rechnung.html', 'rechnung', rechnung, zeilen)
 
 
 def _gutschrift_pdf_neu_rendern(request, gutschrift):
     zeilen = 2 + (1 if gutschrift.rechnung_id else 0)
-    return _dokument_pdf_rendern(request, 'gutschriften/pdf.html', 'gutschrift', gutschrift, zeilen)
+    return _dokument_pdf_rendern(request, 'gutschriften/pdf_gutschrift.html', 'gutschrift', gutschrift, zeilen)
 
 
 def _angebot_pdf_neu_rendern(request, angebot):
     zeilen = 2 + (1 if angebot.gueltig_bis else 0)
-    return _dokument_pdf_rendern(request, 'angebote/pdf.html', 'angebot', angebot, zeilen)
+    return _dokument_pdf_rendern(request, 'angebote/pdf_angebot.html', 'angebot', angebot, zeilen)
 
 
 def _rechnung_pdf_bytes(request, rechnung):
@@ -272,14 +247,43 @@ def _rechnung_pdf_bytes(request, rechnung):
     return _rechnung_pdf_neu_rendern(request, rechnung)
 
 
-def _rechnung_archivieren(request, rechnung):
-    """Friert das PDF einer gesperrten Rechnung einmalig ein."""
+def _rechnung_archivieren(request, rechnung, pdf=None):
+    """
+    Friert das PDF einer gesperrten Rechnung einmalig ein.
+    Wird pdf übergeben (z. B. das gerade versendete PDF), wird genau dieses archiviert.
+    """
     if not rechnung.ist_gesperrt or rechnung.pdf_archiv:
         return
-    pdf, _html = _rechnung_pdf_neu_rendern(request, rechnung)
+    if pdf is None:
+        pdf, _html = _rechnung_pdf_neu_rendern(request, rechnung)
     if pdf:
         rechnung.pdf_archiv.save(f'Rechnung_{rechnung.nummer}.pdf', ContentFile(pdf), save=False)
         rechnung.save(update_fields=['pdf_archiv'])
+
+
+def _gutschrift_pdf_bytes(request, gutschrift):
+    """Archiviertes PDF (gesperrte Gutschrift), sonst frisch gerendert. Gibt (pdf, html) zurück."""
+    if gutschrift.pdf_archiv:
+        try:
+            with gutschrift.pdf_archiv.open('rb') as f:
+                return f.read(), None
+        except (OSError, ValueError):
+            pass
+    return _gutschrift_pdf_neu_rendern(request, gutschrift)
+
+
+def _gutschrift_archivieren(request, gutschrift, pdf=None):
+    """
+    Friert das PDF einer gesperrten Gutschrift einmalig ein.
+    Wird pdf übergeben (z. B. das gerade versendete PDF), wird genau dieses archiviert.
+    """
+    if not gutschrift.ist_gesperrt or gutschrift.pdf_archiv:
+        return
+    if pdf is None:
+        pdf, _html = _gutschrift_pdf_neu_rendern(request, gutschrift)
+    if pdf:
+        gutschrift.pdf_archiv.save(f'Gutschrift_{gutschrift.nummer}.pdf', ContentFile(pdf), save=False)
+        gutschrift.save(update_fields=['pdf_archiv'])
 
 
 # ─────────────────────────────────────────────
@@ -816,6 +820,9 @@ def rechnung_email_senden(request, pk):
             rechnung.status = 'gesendet'
             rechnung.gesendet_am = timezone.now().date()
             rechnung.save(update_fields=['status', 'gesendet_am'])
+        # GoBD: ab "Gesendet" sperren und genau das versendete PDF archivieren
+        if rechnung.sperren_falls_versendet():
+            _rechnung_archivieren(request, rechnung, pdf_bytes)
     except ThunderbirdFehler as e:
         messages.error(request, str(e))
         return redirect('rechnung_detail', pk=pk)
@@ -875,8 +882,8 @@ def gutschrift_email_senden(request, pk):
             'form': form,
         })
 
-    # ── PDF generieren ──
-    pdf_bytes, _html = _gutschrift_pdf_neu_rendern(request, gutschrift)
+    # ── PDF (Archiv bei gesperrter Gutschrift, sonst frisch) ──
+    pdf_bytes, _html = _gutschrift_pdf_bytes(request, gutschrift)
     if pdf_bytes is None:
         messages.error(request, 'WeasyPrint nicht verfügbar – PDF konnte nicht generiert werden.')
         return redirect('gutschrift_detail', pk=pk)
@@ -910,6 +917,9 @@ def gutschrift_email_senden(request, pk):
         if gutschrift.status == 'entwurf':
             gutschrift.status = 'gesendet'
             gutschrift.save(update_fields=['status'])
+        # GoBD: ab "Gesendet" sperren und genau das versendete PDF archivieren
+        if gutschrift.sperren_falls_versendet():
+            _gutschrift_archivieren(request, gutschrift, pdf_bytes)
     except ThunderbirdFehler as e:
         messages.error(request, str(e))
         return redirect('gutschrift_detail', pk=pk)
@@ -953,6 +963,10 @@ def rechnung_zahlungseingang(request, pk):
     if request.method != 'POST':
         return redirect('rechnung_detail', pk=pk)
 
+    if rechnung.offener_betrag <= 0:
+        messages.warning(request, f'Rechnung „{rechnung.nummer}" ist bereits vollständig bezahlt bzw. ausgeglichen.')
+        return redirect('rechnung_detail', pk=pk)
+
     form = ZahlungseingangForm(request.POST)
     if not form.is_valid():
         messages.error(request, 'Bitte Datum und Betrag korrekt eingeben.')
@@ -969,7 +983,7 @@ def rechnung_zahlungseingang(request, pk):
     else:
         rechnung.status = 'teilbezahlt'
     rechnung.save(update_fields=['status'])
-    if rechnung.sperren_falls_bezahlt():
+    if rechnung.sperren_falls_versendet():
         _rechnung_archivieren(request, rechnung)
 
     messages.success(request, f'Zahlungseingang von {zahlung.betrag} € wurde gespeichert.')
@@ -985,7 +999,7 @@ def rechnung_neu(request):
             rechnung = form.save()
             formset.instance = rechnung
             formset.save()
-            if rechnung.sperren_falls_bezahlt():
+            if rechnung.sperren_falls_versendet():
                 _rechnung_archivieren(request, rechnung)
             messages.success(request, f'Rechnung „{rechnung.nummer}" wurde angelegt.')
             return redirect('rechnung_detail', pk=rechnung.pk)
@@ -1007,7 +1021,7 @@ def rechnung_bearbeiten(request, pk):
     if rechnung.ist_gesperrt:
         messages.warning(
             request,
-            f'Rechnung „{rechnung.nummer}" ist bezahlt und damit gesperrt (GoBD). '
+            f'Rechnung „{rechnung.nummer}" ist versendet und damit gesperrt (GoBD). '
             'Korrekturen sind nur per Gutschrift und neuer Rechnung möglich.'
         )
         return redirect('rechnung_detail', pk=pk)
@@ -1018,7 +1032,7 @@ def rechnung_bearbeiten(request, pk):
         if form.is_valid() and formset.is_valid():
             form.save()
             formset.save()
-            if rechnung.sperren_falls_bezahlt():
+            if rechnung.sperren_falls_versendet():
                 _rechnung_archivieren(request, rechnung)
             messages.success(request, f'Rechnung „{rechnung.nummer}" wurde gespeichert.')
             return redirect('rechnung_detail', pk=rechnung.pk)
@@ -1130,14 +1144,32 @@ def einstellungen(request):
 #  DATENSICHERUNG
 # ─────────────────────────────────────────────
 
+def _datenbank_snapshot(db_pfad, ziel_pfad):
+    """
+    Konsistente Kopie der SQLite-Datenbank über die Backup-Funktion von SQLite.
+    Anders als ein reines Dateikopieren ist das Ergebnis auch bei laufendem
+    Betrieb (gleichzeitiger Schreibzugriff) garantiert in sich stimmig.
+    """
+    quelle = sqlite3.connect(str(db_pfad))
+    ziel = sqlite3.connect(ziel_pfad)
+    try:
+        quelle.backup(ziel)
+    finally:
+        ziel.close()
+        quelle.close()
+
+
 def datensicherung(request):
     buffer = BytesIO()
 
-    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        # Datenbank
+    with tempfile.TemporaryDirectory() as tmp_dir, \
+            zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Datenbank (als Snapshot, nicht als Dateikopie)
         db_pfad = settings.DATABASES['default']['NAME']
         if os.path.exists(db_pfad):
-            zf.write(db_pfad, 'db.sqlite3')
+            snapshot_pfad = os.path.join(tmp_dir, 'db.sqlite3')
+            _datenbank_snapshot(db_pfad, snapshot_pfad)
+            zf.write(snapshot_pfad, 'db.sqlite3')
 
         # Media-Ordner
         media_root = settings.MEDIA_ROOT
@@ -1166,7 +1198,7 @@ def artikel_daten(request, pk):
 
     if artikel.is_bundle:
         positionen = []
-        for bp in artikel.bundle_positionen.select_related('artikel').all():
+        for bp in artikel.aktive_bundle_positionen():
             positionen.append({
                 'bezeichnung': bp.artikel.bezeichnung,
                 'beschreibung': bp.artikel.beschreibung,
@@ -1223,6 +1255,8 @@ def gutschrift_neu(request):
             gutschrift = form.save()
             formset.instance = gutschrift
             formset.save()
+            if gutschrift.sperren_falls_versendet():
+                _gutschrift_archivieren(request, gutschrift)
             if gutschrift.rechnung:
                 gutschrift.rechnung.gutschrift_status_aktualisieren()
             messages.success(request, f'Gutschrift „{gutschrift.nummer}" wurde angelegt.')
@@ -1242,6 +1276,13 @@ def gutschrift_neu(request):
 
 def gutschrift_bearbeiten(request, pk):
     gutschrift = get_object_or_404(Gutschrift, pk=pk)
+    if gutschrift.ist_gesperrt:
+        messages.warning(
+            request,
+            f'Gutschrift „{gutschrift.nummer}" ist versendet und damit gesperrt (GoBD). '
+            'Korrekturen sind nur per neuer Gutschrift möglich.'
+        )
+        return redirect('gutschrift_detail', pk=pk)
     GutschriftPositionFormSet.extra = 0
     if request.method == 'POST':
         form = GutschriftForm(request.POST, instance=gutschrift)
@@ -1249,6 +1290,8 @@ def gutschrift_bearbeiten(request, pk):
         if form.is_valid() and formset.is_valid():
             form.save()
             formset.save()
+            if gutschrift.sperren_falls_versendet():
+                _gutschrift_archivieren(request, gutschrift)
             if gutschrift.rechnung:
                 gutschrift.rechnung.gutschrift_status_aktualisieren()
             messages.success(request, f'Gutschrift „{gutschrift.nummer}" wurde gespeichert.')
@@ -1268,7 +1311,8 @@ def gutschrift_bearbeiten(request, pk):
 
 def gutschrift_pdf(request, pk):
     gutschrift = get_object_or_404(Gutschrift, pk=pk)
-    pdf, html = _gutschrift_pdf_neu_rendern(request, gutschrift)
+    _gutschrift_archivieren(request, gutschrift)  # gesperrte Gutschriften werden beim ersten Abruf eingefroren
+    pdf, html = _gutschrift_pdf_bytes(request, gutschrift)
     if pdf is None:
         return HttpResponse(html)
     response = HttpResponse(pdf, content_type='application/pdf')
@@ -1303,6 +1347,12 @@ def rechnung_in_gutschrift(request, pk):
 
 def gutschrift_loeschen(request, pk):
     gutschrift = get_object_or_404(Gutschrift, pk=pk)
+    if gutschrift.ist_gesperrt:
+        messages.warning(
+            request,
+            f'Gutschrift „{gutschrift.nummer}" ist versendet und damit gesperrt (GoBD) und kann nicht gelöscht werden.'
+        )
+        return redirect('gutschrift_detail', pk=pk)
     if request.method == 'POST':
         nummer = gutschrift.nummer
         gutschrift.delete()  # delete() in models.py aktualisiert automatisch den Rechnungsstatus

@@ -1,5 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
+from django.db.models import Q
 from .models import (
     Einstellungen, Absenderprofil, Kunde, Artikel, ArtikelBundlePosition,
     Angebot, AngebotPosition,
@@ -18,7 +19,7 @@ class EinstellungenForm(forms.ModelForm):
         fields = [
             'firma_name', 'firma_zusatz', 'firma_zusatz2',
             'strasse', 'plz', 'ort',
-            'telefon', 'email', 'website', 'logo', 'hintergrund_pdf',
+            'telefon', 'email', 'website',
             'steuernummer', 'ust_id', 'kleinunternehmer',
             'bank_name', 'iban', 'bic',
             'angebot_prefix', 'angebot_naechste_nummer', 'angebot_format',
@@ -129,8 +130,8 @@ class ArtikelForm(forms.ModelForm):
             'einzelpreis':  forms.NumberInput(attrs={'step': '0.01', 'placeholder': 'Bruttopreis inkl. MwSt.'}),
         }
         help_texts = {
-            'is_bundle': 'Bundle-Artikel haben keinen eigenen Preis – stattdessen werden beim Einfügen '
-                         'in ein Angebot die Einzelartikel unten automatisch eingefügt.',
+            'is_bundle': 'Bundle-Artikel haben keinen eigenen Preis – der Preis wird aus den Einzelartikeln '
+                         'berechnet, und beim Einfügen in ein Angebot werden sie automatisch eingefügt.',
         }
 
     def __init__(self, *args, **kwargs):
@@ -167,10 +168,20 @@ class ArtikelBundlePositionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Nur aktive Nicht-Bundle-Artikel als Auswahl anbieten
-        self.fields['artikel'].queryset = Artikel.objects.filter(
-            aktiv=True, is_bundle=False
-        ).order_by('bezeichnung')
+        # Nur aktive Nicht-Bundle-Artikel als Auswahl anbieten; ein bereits eingetragener,
+        # inzwischen inaktiver Artikel bleibt wählbar, damit sich das Bundle weiter speichern lässt
+        auswahl = Q(aktiv=True, is_bundle=False)
+        if self.instance.pk and self.instance.artikel_id:
+            auswahl |= Q(pk=self.instance.artikel_id)
+        self.fields['artikel'].queryset = Artikel.objects.filter(auswahl).order_by('bezeichnung')
+
+    def _get_validation_exclusions(self):
+        # Die Modellvalidierung (limit_choices_to: nur aktive Artikel) würde eine unveränderte,
+        # inzwischen inaktive Position ablehnen; ausgenommen sind nur unveränderte Bestandspositionen.
+        ausnahmen = super()._get_validation_exclusions()
+        if self.instance.pk and 'artikel' not in self.changed_data:
+            ausnahmen.add('artikel')
+        return ausnahmen
         self.fields['artikel'].label = 'Einzelartikel'
 
 
@@ -337,7 +348,7 @@ class RechnungForm(forms.ModelForm):
             self.fields['schlusstext'].initial = e.rechnung_schlusstext
             self.fields['zahlungsbedingungen'].initial = e.zahlungsbedingungen
         self.fields['status'].help_text = (
-            'Achtung: "Bezahlt" sperrt die Rechnung dauerhaft (GoBD). '
+            'Achtung: Jeder Status außer "Entwurf" sperrt die Rechnung dauerhaft (GoBD). '
             'Danach sind nur noch Korrekturen per Gutschrift möglich.'
         )
 
@@ -481,6 +492,9 @@ class GutschriftForm(forms.ModelForm):
         profil.empty_label = None
         if not self.instance.pk:
             profil.initial = Absenderprofil.standard().pk
+        self.fields['status'].help_text = (
+            'Achtung: Jeder Status außer "Entwurf" sperrt die Gutschrift dauerhaft (GoBD).'
+        )
 
 
 class GutschriftPositionForm(forms.ModelForm):

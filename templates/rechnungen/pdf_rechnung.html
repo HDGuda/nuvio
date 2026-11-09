@@ -1,0 +1,17 @@
+{% extends 'pdf_basis.html' %}
+{% load nuvio_filters %}
+
+{% block doc_titel %}Rechnung{% endblock %}
+
+{% block meta_zeilen %}
+            {% if rechnung.faellig_am %}
+            <tr><td>Fällig am</td><td>{{ rechnung.faellig_am|datum_de }}</td></tr>
+            {% endif %}
+{% endblock %}
+
+{% block nach_schluss %}
+      <!-- ZAHLUNGSBEDINGUNGEN -->
+      {% if rechnung.zahlungsbedingungen %}
+      <div class="zahlungsbedingungen">{{ rechnung.zahlungsbedingungen }}</div>
+      {% endif %}
+{% endblock %}

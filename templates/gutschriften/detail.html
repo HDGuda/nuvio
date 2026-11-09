@@ -4,10 +4,10 @@
 {% block seitentitel %}{{ gutschrift.nummer }}{% endblock %}
 
 {% block topbar_actions %}
-    <a href="{% url 'gutschrift_bearbeiten' gutschrift.pk %}" class="btn btn-secondary">Bearbeiten</a>
+    {% if not gutschrift.ist_gesperrt %}<a href="{% url 'gutschrift_bearbeiten' gutschrift.pk %}" class="btn btn-secondary">Bearbeiten</a>{% endif %}
     <a href="{% url 'gutschrift_pdf' gutschrift.pk %}" class="btn btn-gold" target="_blank">PDF erzeugen</a>
     <a href="{% url 'gutschrift_email' gutschrift.pk %}" class="btn btn-primary">✉ Per E-Mail senden</a>
-    <a href="{% url 'gutschrift_loeschen' gutschrift.pk %}" class="btn btn-danger">Löschen</a>
+    {% if not gutschrift.ist_gesperrt %}<a href="{% url 'gutschrift_loeschen' gutschrift.pk %}" class="btn btn-danger">Löschen</a>{% endif %}
 {% endblock %}
 
 {% block inhalt %}
@@ -25,6 +25,9 @@
                 <tr><td style="color: #999; padding: 6px 0;">Datum</td><td>{{ gutschrift.datum|date:"d.m.Y" }}</td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Status</td><td><span class="badge badge-{{ gutschrift.status }}">{{ gutschrift.get_status_display }}</span></td></tr>
                 <tr><td style="color: #999; padding: 6px 0;">Absender</td><td>{{ gutschrift.profil.name }}</td></tr>
+                {% if gutschrift.ist_gesperrt %}
+                <tr><td style="color: #999; padding: 6px 0;">Gesperrt</td><td>seit {{ gutschrift.gesperrt_am|date:"d.m.Y" }} (versendet, GoBD) – Korrektur nur per neuer Gutschrift</td></tr>
+                {% endif %}
                 {% if gutschrift.kleinunternehmer %}
                 <tr><td style="color: #999; padding: 6px 0;">Steuer</td><td>Kleinunternehmer (§&nbsp;19&nbsp;UStG)</td></tr>
                 {% endif %}

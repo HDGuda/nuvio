@@ -1,0 +1,19 @@
+{% extends 'pdf_basis.html' %}
+{% load nuvio_filters %}
+
+{% block extra_css %}
+    /* Angebot: kompakterer Betreff */
+    .betreff {
+        margin-bottom: 8px;
+        font-size: 12px;
+        color: #1a1a2e;
+    }
+{% endblock %}
+
+{% block doc_titel %}Angebot{% endblock %}
+
+{% block meta_zeilen %}
+            {% if angebot.gueltig_bis %}
+            <tr><td>Gültig bis</td><td>{{ angebot.gueltig_bis|datum_de }}</td></tr>
+            {% endif %}
+{% endblock %}

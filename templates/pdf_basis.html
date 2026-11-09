@@ -320,6 +320,7 @@
         margin-bottom: 1px;
     }
 
+    {% block extra_css %}{% endblock %}
 </style>
 </head>
 <body>
@@ -373,35 +374,35 @@
             {% if logo_data_uri and profil.logo_position == 'rechts' %}<img src="{{ logo_data_uri }}">
             {% elif profil.kopf_rechts %}{{ profil.kopf_rechts|linebreaksbr }}{% endif %}
           </div>
-          <div class="doc-titel">Rechnung</div>
+          <div class="doc-titel">{% block doc_titel %}{% endblock %}</div>
           <table>
-            <tr><td>Nummer</td><td>{{ rechnung.nummer }}</td></tr>
-            <tr><td>Datum</td><td>{{ rechnung.datum|datum_de }}</td></tr>
-            {% if rechnung.faellig_am %}
-            <tr><td>Fällig am</td><td>{{ rechnung.faellig_am|datum_de }}</td></tr>
-            {% endif %}
+            <tr><td>Nummer</td><td>{{ dokument.nummer }}</td></tr>
+            <tr><td>Datum</td><td>{{ dokument.datum|datum_de }}</td></tr>
+            {% block meta_zeilen %}{% endblock %}
           </table>
         </div>
 
         {% if profil.absenderzeile %}<div class="absenderzeile">{{ profil.absenderzeile }}</div>{% endif %}
 
         <div class="adressfeld">
-          {% if rechnung.kunde.firma %}{{ rechnung.kunde.firma }}<br>{% endif %}
-          {% if rechnung.kunde.ansprechpartner %}{{ rechnung.kunde.ansprechpartner }}<br>{% endif %}
-          {{ rechnung.kunde.strasse }}<br>
-          {{ rechnung.kunde.plz }} {{ rechnung.kunde.ort }}
-          {% with land=rechnung.kunde.land|upper %}{% if land and land != 'DE' and land != 'DEUTSCHLAND' and land != 'GERMANY' %}<br>{{ land }}{% endif %}{% endwith %}
+          {% if dokument.kunde.firma %}{{ dokument.kunde.firma }}<br>{% endif %}
+          {% if dokument.kunde.ansprechpartner %}{{ dokument.kunde.ansprechpartner }}<br>{% endif %}
+          {{ dokument.kunde.strasse }}<br>
+          {{ dokument.kunde.plz }} {{ dokument.kunde.ort }}
+          {% with land=dokument.kunde.land|upper %}{% if land and land != 'DE' and land != 'DEUTSCHLAND' and land != 'GERMANY' %}<br>{{ land }}{% endif %}{% endwith %}
         </div>
       </div>
 
+      {% block vor_betreff %}{% endblock %}
+
       <!-- BETREFF -->
-      {% if rechnung.betreff %}
-      <div class="betreff">{{ rechnung.betreff }}</div>
+      {% if dokument.betreff %}
+      <div class="betreff">{{ dokument.betreff }}</div>
       {% endif %}
 
       <!-- EINLEITUNGSTEXT -->
-      {% if rechnung.einleitungstext %}
-      <div class="einleitung">{{ rechnung.einleitungstext|platzhalter:rechnung|safe }}</div>
+      {% if dokument.einleitungstext %}
+      <div class="einleitung">{% block einleitung_text %}{{ dokument.einleitungstext|platzhalter:dokument|safe }}{% endblock %}</div>
       {% endif %}
 
       <!-- POSITIONEN -->
@@ -411,12 +412,12 @@
             <th>Pos. &amp; Beschreibung</th>
             <th>Menge</th>
             <th>Einheit</th>
-            <th>Einzelpreis{% if not rechnung.kleinunternehmer %} netto{% endif %}</th>
-            <th>Gesamtpreis{% if not rechnung.kleinunternehmer %} netto{% endif %}</th>
+            <th>Einzelpreis{% if not dokument.kleinunternehmer %} netto{% endif %}</th>
+            <th>Gesamtpreis{% if not dokument.kleinunternehmer %} netto{% endif %}</th>
           </tr>
         </thead>
         <tbody>
-          {% for position in rechnung.positionen.all %}
+          {% for position in dokument.positionen.all %}
           <tr>
             <td>
               <span class="pos-desc">{{ position.bezeichnung }}</span>
@@ -426,7 +427,7 @@
             </td>
             <td>{{ position.menge|menge }}</td>
             <td>{{ position.einheit }}</td>
-            {% if rechnung.kleinunternehmer %}
+            {% if dokument.kleinunternehmer %}
             <td>{{ position.einzelpreis|euro }} €</td>
             <td>{{ position.gesamtpreis_brutto|euro }} €</td>
             {% else %}
@@ -437,13 +438,13 @@
           {% endfor %}
         </tbody>
         <tfoot>
-          {% if not rechnung.kleinunternehmer %}
+          {% if not dokument.kleinunternehmer %}
           <tr class="summen-netto">
             <td colspan="3"></td>
             <td>Nettobetrag</td>
-            <td>{{ rechnung.netto|euro }} €</td>
+            <td>{{ dokument.netto|euro }} €</td>
           </tr>
-          {% with gruppen=rechnung.steuergruppen %}
+          {% with gruppen=dokument.steuergruppen %}
           {% for g in gruppen %}
           <tr class="summen-mwst{% if forloop.last %} letzte{% endif %}">
             <td colspan="4" style="text-align:right">zzgl. {{ g.satz|prozent }} % MwSt.{% if gruppen|length > 1 %} auf {{ g.netto|euro }} €{% endif %}</td>
@@ -452,27 +453,24 @@
           {% endfor %}
           {% endwith %}
           {% endif %}
-          <tr class="summen-brutto{% if rechnung.kleinunternehmer %} ku{% endif %}">
+          <tr class="summen-brutto{% if dokument.kleinunternehmer %} ku{% endif %}">
             <td colspan="3"></td>
-            <td>Gesamtbetrag</td>
-            <td>{{ rechnung.brutto|euro }} €</td>
+            <td>{% block summen_label %}Gesamtbetrag{% endblock %}</td>
+            <td>{{ dokument.brutto|euro }} €</td>
           </tr>
         </tfoot>
       </table>
 
-      {% if rechnung.kleinunternehmer %}
+      {% if dokument.kleinunternehmer %}
       <div class="ku-hinweis">Der Auftragnehmer ist Kleinunternehmer im Sinne des § 19 UStG und stellt daher keine Umsatzsteuer in Rechnung.</div>
       {% endif %}
 
       <!-- SCHLUSSTEXT -->
-      {% if rechnung.schlusstext %}
-      <div class="schluss">{{ rechnung.schlusstext|platzhalter:rechnung|safe }}</div>
+      {% if dokument.schlusstext %}
+      <div class="schluss">{% block schluss_text %}{{ dokument.schlusstext|platzhalter:dokument|safe }}{% endblock %}</div>
       {% endif %}
 
-      <!-- ZAHLUNGSBEDINGUNGEN -->
-      {% if rechnung.zahlungsbedingungen %}
-      <div class="zahlungsbedingungen">{{ rechnung.zahlungsbedingungen }}</div>
-      {% endif %}
+      {% block nach_schluss %}{% endblock %}
 
     </td></tr>
   </tbody>

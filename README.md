@@ -86,7 +86,7 @@ Der Aussteller aller Dokumente ist immer derselbe Unternehmer, tritt aber in unt
 | Unterer Seitenrand (mm) | Muss zur Fußzeile des Briefpapiers passen (Standard 28 mm) |
 | Thunderbird-Identität | Nummer der Absender-Identität in Thunderbird (z. B. `id2`); bestimmt die Absenderadresse der E-Mail. Leer = Standard-Identität von Thunderbird |
 
-**Verwaltung:** Einstellungen → Karte „Absenderprofile“ → „Absenderprofile verwalten“ (Liste mit Logo, Briefpapier und Zahl der Dokumente, Bearbeiten, „Als Standard“, Löschen). Zusätzlich ist das Modell im Django-Admin registriert. Ein Profil, das Rechnungen, Angebote oder Gutschriften verwenden, und das Standardprofil lassen sich nicht löschen. Beim Ersetzen von Logo oder Briefpapier ist nur ein Austausch möglich, kein ersatzloses Entfernen.
+**Verwaltung:** Einstellungen → Reiter „Profile“ → „Absenderprofile verwalten“ (Liste mit Logo, Briefpapier und Zahl der Dokumente, Bearbeiten, „Als Standard“, Löschen). Zusätzlich ist das Modell im Django-Admin registriert. Ein Profil, das Rechnungen, Angebote oder Gutschriften verwenden, und das Standardprofil lassen sich nicht löschen. Beim Ersetzen von Logo oder Briefpapier ist nur ein Austausch möglich, kein ersatzloses Entfernen.
 
 **Zuordnung zu Dokumenten**
 
@@ -164,22 +164,24 @@ Rechnungen kennen folgende Zustände:
 
 * Teilzahlungen können einzeln mit Datum und Betrag erfasst werden
 * Der offene Betrag wird automatisch aus Bruttobetrag abzüglich Gutschriften und Teilzahlungen berechnet. Ist er nach einer Zahlung 0 oder kleiner, wechselt der Status auf „Bezahlt“, sonst auf „Teilbezahlt“ (Gutschriften werden dabei berücksichtigt)
+* Die Felder „Zahlungsdatum“ und „Höhe des Zahlungseingangs“ erscheinen nur, solange noch ein Betrag offen ist (offener Betrag > 0). Bei vollständig bezahlten oder durch Gutschriften ausgeglichenen Rechnungen entfallen sie; die View lehnt eine Zahlung bei offenem Betrag 0 zusätzlich serverseitig ab (z. B. bei einer veralteten Seite).
 * Die Zahlungen stehen in der Detailansicht in der Karte „Zahlungseingang“. Die früheren Modellfelder `bezahlt_am` und `bezahlt_betrag` an der Rechnung gibt es nicht mehr (Migration `0014`); die gleichnamigen Felder im Zahlungsformular dienen nur der Erfassung einer neuen Zahlung.
 
 **Unveränderbarkeit (GoBD)**
 
-Eine Rechnung ist **ab dem Status „Bezahlt“ dauerhaft gesperrt**:
+Eine Rechnung ist **ab dem Versand dauerhaft gesperrt**, also ab jedem Status außer „Entwurf“ (Gesendet, Bezahlt, Teilbezahlt, Überfällig, Storniert, Teilgutgeschrieben). Für Angebote gibt es keine Sperre.
 
-* Maßgeblich ist nicht der Status, sondern das Feld `gesperrt_am`. Es wird einmalig gesetzt, sobald eine Rechnung bezahlt ist (durch eine Zahlung, die den offenen Betrag auf 0 bringt, oder durch manuelles Setzen des Status „Bezahlt“ im Formular; das Status-Dropdown warnt davor), und nie zurückgenommen. Eine Gutschrift kann den Status später auf „Teilgutgeschrieben“ oder „Storniert“ ändern, die Sperre bleibt. Wird eine Gutschrift wieder gelöscht, fällt eine gesperrte Rechnung auf „Bezahlt“ zurück. Bei der Migration `0015` wurden bereits bezahlte Rechnungen gesperrt.
-* Gesperrt sind Kunde, Datum, Absenderprofil, Positionen, Texte, Beträge, Kleinunternehmer-Merkfeld und Löschen. In der Detailansicht fehlt der Button „Bearbeiten“ und eine Zeile „Gesperrt“ nennt das Datum; der Bearbeiten-Link leitet mit Hinweis zurück. Die Sperre gilt auch auf Modellebene (`Rechnung.save()`, `delete()`, `RechnungPosition`), also zusätzlich zu den Formularen, etwa für den Django-Admin. Es wird dort `RechnungGesperrt` ausgelöst.
+* Maßgeblich ist nicht der Status, sondern das Feld `gesperrt_am`. Es wird einmalig gesetzt (`sperren_falls_versendet()`) und nie zurückgenommen. Auslöser sind der Versand über „In E-Mail-Programm öffnen“, das manuelle Setzen eines anderen Status als „Entwurf“ im Formular (das Status-Dropdown warnt davor), die Erfassung einer Zahlung und das Speichern im Django-Admin (`RechnungAdmin.save_model`). Die Sperre wird erst nach dem Speichern von Rechnung **und** Positionen gesetzt, damit beim ersten Speichern noch alle Positionen geschrieben werden können. Bei der Migration `0015` wurden bereits bezahlte, bei `0019` alle nicht als Entwurf geführten Rechnungen und Gutschriften gesperrt.
+* Eine spätere Gutschrift kann den Status auf „Teilgutgeschrieben“ oder „Storniert“ ändern, die Sperre bleibt. Fällt die letzte Gutschrift weg, wird der Status wieder aus den Zahlungen abgeleitet: „Bezahlt“, „Teilbezahlt“ oder „Gesendet“. Eine Rechnung im Entwurf behält ihren Status, auch wenn eine Gutschrift zu ihr angelegt wird.
+* Gesperrt sind Kunde, Datum, Absenderprofil, Positionen, Texte, Beträge, Kleinunternehmer-Merkfeld und Löschen. In der Detailansicht fehlt der Button „Bearbeiten“ und eine Zeile „Gesperrt“ nennt das Datum; der Bearbeiten-Link leitet mit Hinweis zurück. Die Sperre gilt auch auf Modellebene (`Rechnung.save()`, `delete()`, `RechnungPosition`), also zusätzlich zu den Formularen, etwa für den Django-Admin. Es wird dort `RechnungGesperrt` ausgelöst; das Speichern einer gesperrten Rechnung im Admin führt daher zu einem Fehler.
 * Weiterhin möglich sind Zahlungen erfassen, Statuswechsel durch Gutschriften sowie (auf Modellebene) Status, Versanddatum und interne Notizen. Korrekturen laufen über Gutschrift und neue Rechnung.
-* **PDF-Archiv:** Beim Sperren speichert nuvio das PDF einmalig als Datei (`media/rechnungen_archiv/`, Feld `pdf_archiv`) und liefert danach nur noch dieses Archiv aus, auch beim E-Mail-Versand. Spätere Änderungen an Kundendaten oder am Profil verändern eine bezahlte Rechnung damit nicht mehr. Bei bereits vorhandenen bezahlten Rechnungen entsteht das Archiv beim ersten Abruf des PDFs.
-* Bis zur Zahlung (Status Entwurf, Gesendet usw.) ist eine Rechnung änderbar; das PDF wird dann bei jedem Aufruf frisch erzeugt.
+* **PDF-Archiv:** Beim Sperren speichert nuvio das PDF einmalig als Datei (`media/rechnungen_archiv/`, Feld `pdf_archiv`) und liefert danach nur noch dieses Archiv aus, auch beim E-Mail-Versand. Beim Versand wird genau das PDF archiviert, das als Anhang an Thunderbird übergeben wurde. Bei manuell gesetztem Status entsteht das Archiv beim Speichern, bei Rechnungen aus der Zeit vor `0019` beim ersten Abruf des PDFs (dann mit dem aktuellen Datenbestand, nicht zwingend mit dem tatsächlich versendeten Stand). Spätere Änderungen an Kundendaten oder am Profil verändern eine versendete Rechnung danach nicht mehr.
+* Solange eine Rechnung ein Entwurf ist, ist sie änderbar und das PDF wird bei jedem Aufruf frisch erzeugt.
 
 **Ausgabe**
 
 * PDF-Generierung inkl. Seitennummerierung und Briefpapier aus dem Absenderprofil
-* E-Mail-Versand mit vorausgefülltem Betreff und Text sowie Standard-Anhängen, über die Thunderbird-Identität des Profils
+* E-Mail-Versand mit vorausgefülltem Betreff und Text sowie Standard-Anhängen, über die Thunderbird-Identität des Profils; der Versand sperrt die Rechnung und archiviert das versendete PDF
 
 ---
 
@@ -191,7 +193,8 @@ Gutschriften können eigenständig oder als Korrekturdokument zu einer bestehend
 * Optionale Verknüpfung mit einer Rechnung
 * Eigene Positionen mit Mengen, Preisen und Steuersätzen
 * Statusverwaltung: `Entwurf` → `Gesendet` → `Storniert`
-* Wird eine Gutschrift mit einer Rechnung verknüpft, aktualisiert sich deren Status automatisch (z. B. auf „Teilgutgeschrieben“ oder „Storniert“); das ist auch bei gesperrten Rechnungen möglich
+* **Unveränderbarkeit (GoBD):** Wie Rechnungen ist auch eine Gutschrift **ab dem Versand dauerhaft gesperrt**, also ab jedem Status außer „Entwurf“. Das Feld `gesperrt_am` wird einmalig gesetzt (`sperren_falls_versendet()`, ausgelöst durch den E-Mail-Versand oder das manuelle Setzen eines anderen Status im Formular), das PDF wird einmalig in `media/gutschriften_archiv/` (Feld `pdf_archiv`) archiviert und danach nur noch daraus ausgeliefert. Gesperrt sind Kunde, Datum, Rechnungsbezug, Absenderprofil, Positionen, Texte und Löschen; in der Detailansicht entfallen „Bearbeiten“ und „Löschen“, stattdessen steht dort eine Zeile „Gesperrt“. Auf Modellebene (`Gutschrift.save()`, `delete()`, `GutschriftPosition`) wird `GutschriftGesperrt` ausgelöst (Unterklasse von `RechnungGesperrt`); änderbar bleiben Status und interne Notizen. Korrekturen laufen über eine neue Gutschrift.
+* Wird eine Gutschrift mit einer Rechnung verknüpft, aktualisiert sich deren Status automatisch (z. B. auf „Teilgutgeschrieben“ oder „Storniert“); das gilt für versendete (gesperrte) Rechnungen, eine Rechnung im Entwurf behält ihren Status
 * Eine Gutschrift zu einer Rechnung übernimmt deren Kleinunternehmer-Status, damit beide Dokumente steuerlich gleich behandelt werden, und deren Absenderprofil
 * PDF-Generierung (mit Hinweiskasten „Diese Gutschrift bezieht sich auf Rechnung …“) und E-Mail-Versand
 
@@ -231,7 +234,7 @@ Gesamtbetrag                         928,00 €
 
 nuvio unterstützt Kleinunternehmer, die keine Umsatzsteuer berechnen.
 
-**Schalter:** Einstellungen → Steuer und Bank → Häkchen „Kleinunternehmer (§ 19 UStG)“. Der Schalter gilt für alle Absenderprofile gemeinsam.
+**Schalter:** Einstellungen → Reiter „Stammdaten“ → Karte „Steuerdaten“ → Häkchen „Kleinunternehmer (§ 19 UStG)“. Der Schalter gilt für alle Absenderprofile gemeinsam.
 
 **Merkfeld pro Dokument:** Angebote, Rechnungen und Gutschriften haben ein Feld `kleinunternehmer` (nicht im Formular bearbeitbar). Es wird **beim Anlegen** des Dokuments aus den Einstellungen übernommen und ändert sich danach nicht mehr, auch nicht beim erneuten Speichern. Ein späteres Umlegen des Schalters wirkt daher nur auf neue Dokumente; bereits erstellte Dokumente behalten ihre Steuerbehandlung und ihr Aussehen.
 
@@ -255,21 +258,11 @@ nuvio unterstützt Kleinunternehmer, die keine Umsatzsteuer berechnen.
 
 ### PDF-Layout (Angebote, Rechnungen, Gutschriften)
 
-Die drei PDF-Vorlagen (`templates/angebote/pdf.html`, `rechnungen/pdf.html`, `gutschriften/pdf.html`) sind bewusst gleich aufgebaut. Das Rendern läuft für alle drei über `_dokument_pdf_rendern` in `views.py` (WeasyPrint, Seitennummern, Briefpapier-Hintergrund); Rechnungen mit Archiv-PDF werden über `_rechnung_pdf_bytes` ausgeliefert.
+Die drei PDF-Vorlagen (`templates/angebote/pdf_angebot.html`, `rechnungen/pdf_rechnung.html`, `gutschriften/pdf_gutschrift.html`) erweitern das gemeinsame Basis-Template `templates/pdf_basis.html`. Dort liegen CSS, Briefkopf, Adressfeld, Positionstabelle, Summen, Kleinunternehmer-Hinweis und Fußzeile; Layoutänderungen sind also nur einmal nötig. Die Vorlagen füllen nur die Blöcke `doc_titel`, `meta_zeilen` (zusätzliche Zeilen der Nummer/Datum-Tabelle), `vor_betreff`, `summen_label` und `nach_schluss` sowie bei Bedarf `extra_css`, `einleitung_text` und `schluss_text`. Das Basis-Template greift über die Kontextvariable `dokument` auf das jeweilige Dokument zu (setzt `_dokument_pdf_rendern`; zusätzlich bleibt der Name `angebot`, `rechnung` bzw. `gutschrift` verfügbar). Ändert sich die Zahl der Zeilen in der Nummer/Datum-Tabelle, muss `zeilen` in `_angebot_pdf_neu_rendern` usw. passen (Seitennummer). Das Rendern läuft für alle drei über `_dokument_pdf_rendern` in `views.py` (WeasyPrint, Seitennummern, Briefpapier-Hintergrund); Gesperrte Rechnungen und Gutschriften mit Archiv-PDF werden über `_rechnung_pdf_bytes` bzw. `_gutschrift_pdf_bytes` ausgeliefert, archiviert wird über `_rechnung_archivieren` und `_gutschrift_archivieren`.
 
 **Briefkopf und Adressfenster (nur Seite 1)**
 
 Das Layout ist für Fensterumschläge ausgelegt, sodass ein Dokument auch als Brief verschickt werden kann. Annahme: Das Adressfenster liegt 49 mm von der Oberkante und 20 mm vom linken Rand und ist 45 mm hoch (DL-Standardumschlag).
-
-| Element | Position (vom Blattrand) |
-|---|---|
-| Briefkopf links (Logo, Firmenname, Block) | links, ab 8 mm von oben; Firmenname und Block haben dieselbe Schrift (9,25 pt, Name fett) und keinen Abstand dazwischen |
-| Logo-Fach rechts | feste Höhe (72 px) ab 8 mm von oben; bei Logo links steht dort „Briefkopf rechts“ |
-| Titel („RECHNUNG“, „ANGEBOT“, „GUTSCHRIFT“) und Tabelle mit Nummer, Datum, Fälligkeit/Gültigkeit/Bezug | rechts unter dem Logo-Fach |
-| „Seite x von y“ | direkt unter dieser Tabelle |
-| Absenderzeile | 49–52 mm, 7 pt, unterstrichen, im Fenster direkt unter der Fensterkante |
-| Empfängeradresse | ab 55 mm (3 mm unter der Absenderzeile), 10 pt, 85 mm breit, alle Zeilen gleiche Schrift |
-| Betreffzeile | unterhalb des Briefkopfblocks (Block ist 96 mm hoch) |
 
 * **Adresszeilen:** Firma, Ansprechpartner („Vorname Nachname“, ohne „z. Hd.“), Straße, PLZ Ort; das Land nur bei Auslandskunden, in Großbuchstaben (DE, Deutschland und Germany werden unterdrückt). Im Fenster ist Platz für etwa 6 Zeilen.
 * **Betreffzeile:** Bei Rechnungen und Gutschriften ohne Präfix und komplett fett (13 px); bei Angeboten fett in 12 px.
@@ -288,7 +281,7 @@ Das Layout ist für Fensterumschläge ausgelegt, sodass ein Dokument auch als Br
 
 ### E-Mail-Übergabe an Thunderbird
 
-Der Button „Per E-Mail senden“ erzeugt das PDF, speichert es in den temporären Ordner und öffnet in Thunderbird ein neues Schreibfenster (`thunderbird -compose` mit `to`, `subject`, `body` als HTML, `attachment` und `preselectid`). Der Status wechselt wie bisher auf „Gesendet“, sobald die Übergabe geklappt hat; abgeschickt wird erst in Thunderbird.
+Der Button „Per E-Mail senden“ in der Detailansicht öffnet die Vorschau (Empfänger, Betreff, Text, Anhänge). Der Button „In E-Mail-Programm öffnen“ erzeugt dort das PDF, speichert es in den temporären Ordner und öffnet in Thunderbird ein neues Schreibfenster (`thunderbird -compose` mit `to`, `subject`, `body` als HTML, `attachment` und `preselectid`). Der Status wechselt auf „Gesendet“, sobald die Übergabe geklappt hat; abgeschickt wird erst in Thunderbird. Bei Rechnungen und Gutschriften wird das Dokument in diesem Moment auch gesperrt und genau das übergebene PDF archiviert (siehe [Unveränderbarkeit (GoBD)](#rechnungen)).
 
 * **Programm:** nuvio sucht `thunderbird.exe` im PATH und in den üblichen Installationsordnern (`Program Files`, `Program Files (x86)`, `%LOCALAPPDATA%\Programs`). Bei abweichendem Ort in `settings.py` setzen: `THUNDERBIRD_PFAD = r"D:\Apps\Thunderbird\thunderbird.exe"`.
 * **Absenderadresse:** Im Absenderprofil die Thunderbird-Identität eintragen (z. B. `id2`). Die Nummer steht in Thunderbird unter Einstellungen → Konfigurationseditor: Suche nach „useremail“, Einträge der Form `mail.identity.id2.useremail`. Ohne Eintrag gilt die Standard-Identität.
@@ -315,7 +308,7 @@ In den Einleitungs- und Schlusstexten von Angeboten und Rechnungen – sowohl di
 | `{{rechnung_leistungsmonat}}` | Monat und Jahr des Rechnungsdatums, z. B. „Oktober 2026“ (nur in Rechnungen) |
 | `---seitenumbruch---` | Erzwungener Seitenumbruch im PDF |
 
-> **Hinweis:** `{{rechnung_leistungsmonat}}` ist noch nicht im Dropdown „Platzhalter einfügen…“ enthalten und muss vorerst von Hand eingetippt werden (siehe To do). In Gutschriften werden Platzhalter derzeit nicht ersetzt.
+> **Hinweis:** `{{rechnung_leistungsmonat}}` ist noch nicht im Dropdown „Platzhalter einfügen…“ enthalten und muss vorerst von Hand eingetippt werden (siehe To do). In Gutschriften werden nur die Kunden-Platzhalter (`{{kunde_firma}}`, `{{kunde_ansprechpartner}}`, `{{kunde_vorname}}`, `{{kunde_nachname}}`, `{{kunde_ort}}`) und `---seitenumbruch---` ersetzt; Nummer und Datum gibt es dort bisher nicht als Platzhalter.
 
 Die **E-Mail-Vorlagen** (Betreff und Text für Angebote, Rechnungen und Gutschriften) verwenden ein eigenes, kleineres Platzhalter-Set, das unabhängig vom oben genannten System funktioniert:
 
@@ -332,42 +325,43 @@ Die **E-Mail-Vorlagen** (Betreff und Text für Angebote, Rechnungen und Gutschri
 
 ### Einstellungen
 
-Alle zentralen Parameter der Anwendung werden einmalig in den Einstellungen hinterlegt:
+Alle zentralen Parameter der Anwendung werden einmalig in den Einstellungen hinterlegt. Die Seite ist in Reiter gegliedert: **Stammdaten** (mit den Karten Stammdaten, Steuerdaten und Bankverbindung), **Nummernkreise**, **Standardtexte**, **E-Mail-Vorlagen**, **Profile** und **Sicherung**. Alle Felder liegen in einem gemeinsamen Formular, „Einstellungen speichern“ speichert also alle Reiter auf einmal (auf den Reitern „Profile“ und „Sicherung“ ist der Button ausgeblendet). Der zuletzt benutzte Reiter bleibt auch nach dem Speichern offen und lässt sich per `#Name` in der Adresse direkt öffnen (z. B. `…/einstellungen/#nummernkreise`); fehlt ein Pflichtfeld in einem verborgenen Reiter, wechselt die Seite dorthin.
 
-**Stammdaten**
+**Stammdaten** (Reiter „Stammdaten“)
 
 * Name, Zusatzzeilen (z. B. Berufsbezeichnung, Registernummer), Adresse, Telefon, E-Mail, Website
 * Logo und Briefpapier werden **nicht** mehr hier, sondern pro Rolle in den Absenderprofilen festgelegt. Die Stammdaten dienen als Rückfallwert (Name) und für die Fußzeile ohne Briefpapier.
 
-**Steuer und Bank**
+**Steuerdaten und Bankverbindung** (Reiter „Stammdaten“)
 
 * Steuernummer, USt-IdNr., Bankverbindung (IBAN, BIC)
 * Schalter „Kleinunternehmer (§ 19 UStG)“ (siehe [Kleinunternehmerregelung](#kleinunternehmerregelung--19-ustg))
 
-**Nummernkreise**
+**Nummernkreise** (Reiter „Nummernkreise“)
 
 * Konfigurierbares Format für Angebots-, Rechnungs- und Gutschriftnummern
 * Frei wählbarer Präfix und fortlaufende Nummerierung (mit Jahr)
 * Nächste Nummer manuell einstellbar
 
-**Standardtexte**
+**Standardtexte** (Reiter „Standardtexte“)
 
 * Vorbelegte Einleitungs- und Schlusstexte für Angebote und Rechnungen, inklusive Platzhalter-Dropdown (siehe [Platzhalter-System](#platzhalter-system))
 * Standard-Zahlungsbedingungen
 
-**E-Mail-Vorlagen**
+**E-Mail-Vorlagen** (Reiter „E-Mail-Vorlagen“)
 
 * Separate Betreff- und Textvorlagen für Angebote, Rechnungen und Gutschriften
 * Platzhalter für Nummer, Kundenname, Firma und Datum (siehe [Platzhalter-System](#platzhalter-system))
 * Bis zu zwei Standard-Anhänge je Dokumenttyp
 
-**Absenderprofile**
+**Absenderprofile** (Reiter „Profile“)
 
 * Karte mit Link zur Profilverwaltung (siehe [Absenderprofile](#absenderprofile-rollen))
 
-**Datensicherung**
+**Datensicherung** (Reiter „Sicherung“)
 
-* ZIP-Download mit der Datenbank und allen hochgeladenen Dateien (Logo, Briefpapier, E-Mail-Anhänge, archivierte Rechnungs-PDFs)
+* Der Button „Daten sichern“ liefert einen ZIP-Download mit einem Snapshot der Datenbank (`db.sqlite3`, erstellt über die SQLite-Backup-Funktion, daher auch bei laufendem Betrieb in sich konsistent) und dem gesamten Media-Ordner, also allen hochgeladenen und archivierten Dateien: Logos, Briefpapier, E-Mail-Anhänge sowie die archivierten PDFs versendeter Rechnungen und Gutschriften.
+* Eine Wiederherstellung aus der App heraus gibt es bislang nicht (siehe To do).
 
 ---
 
@@ -377,7 +371,7 @@ Alle zentralen Parameter der Anwendung werden einmalig in den Einstellungen hint
 * **Datenbank:** SQLite (lokal, keine externe Datenbank nötig)
 * **PDF-Generierung:** WeasyPrint + pypdf (Hintergrundmerge, Seitennummern mit ReportLab)
 * **E-Mail-Versand:** Übergabe an Mozilla Thunderbird über die Kommandozeile (`thunderbird -compose`), die Absenderadresse richtet sich nach der Thunderbird-Identität des Absenderprofils
-* **Frontend:** HTML/CSS (eigene Templates, ohne JavaScript-Framework; kleine Inline-Skripte, z. B. für das Auf-/Zuklappen der Bundle-Unterartikel und für die Positionszeilen in den Formularen)
+* **Frontend:** HTML/CSS (eigene Templates, ohne JavaScript-Framework; kleine Inline-Skripte, z. B. für das Auf-/Zuklappen der Bundle-Unterartikel, die Positionszeilen in den Formularen und die Reiter der Einstellungen)
 * **Betrieb:** Lokaler Django-Entwicklungsserver, Start per `start.bat` (Windows)
 
 ---
@@ -445,56 +439,30 @@ nuvio ist durch eine einfache Benutzeranmeldung geschützt. Alle Seiten der Anwe
 nuvio/
 ├── core/                    # Hauptmodul: Models, Views, Forms, URLs
 │   ├── models.py            # Datenmodell (Kunden, Artikel, Bundles, Absenderprofile, Angebote, Rechnungen, Gutschriften, SummenMixin)
-│   ├── views.py             # Alle Ansichten und PDF-/E-Mail-Logik (u. a. _dokument_pdf_rendern, Rechnungs-Archiv)
+│   ├── views.py             # Alle Ansichten und PDF-/E-Mail-Logik (u. a. _dokument_pdf_rendern, PDF-Archiv für Rechnungen und Gutschriften)
 │   ├── forms.py             # Django-Formulare und Formsets
-│   ├── admin.py             # Admin-Registrierung (u. a. Absenderprofil)
+│   ├── admin.py             # Admin-Registrierung (u. a. Absenderprofil; Rechnung sperrt beim Speichern ab „Gesendet“)
 │   ├── middleware.py        # Login-Schutz für alle Seiten
 │   ├── templatetags/
 │   │   └── nuvio_filters.py # Eigene Template-Filter (Datum, Euro, Platzhalter-Ersetzung)
-│   └── migrations/          # Datenbankmigrationen (0015 Absenderprofil/Sperre, 0016 Angebote, 0017 Gutschriften, 0018 Thunderbird-Identität)
+│   └── migrations/          # Datenbankmigrationen (0015 Absenderprofil/Sperre, 0016 Angebote, 0017 Gutschriften, 0018 Thunderbird-Identität, 0019 Gutschrift-Sperre)
 ├── rechnungssystem/         # Django-Projektkonfiguration
 │   ├── settings.py          # Entwicklungseinstellungen
 │   ├── settings_prod.py     # Produktionseinstellungen
 │   └── urls.py              # URL-Konfiguration inkl. Login/Logout
 ├── templates/               # HTML-Templates (Dashboard, Listen, Formulare, PDFs, E-Mails)
-│   ├── angebote/, rechnungen/, gutschriften/   # u. a. Detail, Formular, PDF
+│   ├── pdf_basis.html       # Gemeinsames Basis-Template der PDFs (Briefkopf, Adressfeld, Positionen, Summen, Fußzeile)
+│   ├── angebote/, rechnungen/, gutschriften/   # u. a. Detail, Formular, PDF (pdf_angebot.html, pdf_rechnung.html bzw. pdf_gutschrift.html erweitern pdf_basis.html)
 │   ├── absenderprofile/     # Liste, Formular, Löschen
 │   └── login.html           # Anmeldeseite im Nuvio-Design
 ├── media/                   # Hochgeladene Dateien
 │   ├── logo/                # Logos der Absenderprofile
 │   ├── hintergrund/         # Briefpapier (PDF) der Absenderprofile
-│   └── rechnungen_archiv/   # Archivierte PDFs gesperrter Rechnungen
+│   ├── rechnungen_archiv/   # Archivierte PDFs gesperrter Rechnungen
+│   └── gutschriften_archiv/ # Archivierte PDFs gesperrter Gutschriften
 ├── manage.py                # Django-Management-Utility
 └── start.bat                # Schnellstart für Windows
 ```
-
----
-
-## Letzte Änderungen (5. November 2026)
-
-* **Absenderprofile:** Neues Modell `Absenderprofil` (Logo, Briefkopf links/rechts, Absenderzeile, Briefpapier, unterer Rand, Thunderbird-Identität) für Rollen mit gemeinsamem Nummernkreis, kein Mandant. Fremdschlüssel an Rechnung (`0015`), Angebot (`0016`) und Gutschrift (`0017`); Angebot → Rechnung und Rechnung → Gutschrift reichen das Profil weiter. Verwaltung unter Einstellungen → Absenderprofile; Logo und Hintergrund-PDF sind aus den Stammdaten entfernt, die Migration hat die bisherigen Werte in das Profil „Standard“ übernommen.
-* **Neues PDF-Layout:** Briefkopf aus dem Profil, Empfängeradresse im Fenster ab 55 mm mit Absenderzeile (49–52 mm), Titel und Nummer/Datum-Tabelle rechts unter dem Logo, „Seite x von y“ unter dieser Tabelle, keine Kopfzeile auf Folgeseiten. Gleiche Gestaltung für Angebote, Rechnungen und Gutschriften; „Rechnung an“, „z. Hd.“ und das Land „DE“ entfallen, die Betreffzeile steht ohne „Objekt:“ fett.
-* **GoBD-Sperre für Rechnungen:** Ab „Bezahlt“ unveränderbar (`gesperrt_am`), mit archiviertem PDF (`pdf_archiv`); Statuswechsel durch Gutschriften bleiben möglich. Der Zahlungseingang rechnet mit dem offenen Betrag inklusive Gutschriften.
-* **Standardtexte im Formular:** Einleitung, Schluss und Zahlungsbedingungen (bzw. Einleitung und Schluss bei Angeboten) sind beim Anlegen vorbelegt.
-* **E-Mail-Versand nur noch über Thunderbird:** Die Übergabe an Outlook (COM, `pywin32`) ist entfernt. nuvio öffnet ein Thunderbird-Schreibfenster mit Empfänger, Betreff, Text und Anhängen; die Absenderadresse wählt die Thunderbird-Identität des Absenderprofils (Migration `0018`, ersetzt das Feld „Absender-E-Mail“). `{{firma}}` richtet sich weiter nach dem Absenderprofil.
-* **Einstellungen:** „Firmendaten“ heißt jetzt „Stammdaten“ (Feld „Name“), die Karte „Absenderprofile“ steht weiter unten.
-* **PDF-Erzeugung vereinheitlicht:** Gemeinsame Funktion `_dokument_pdf_rendern` für Angebote, Rechnungen und Gutschriften (Ansicht und E-Mail).
-
-### Davor (3. November 2026)
-
-* **Summenblock nach Steuersätzen:** Eine MwSt.-Zeile je Steuersatz mit Bemessungsgrundlage in den drei PDF-Vorlagen und den drei Detailansichten (vorher wurde nur der Satz der ersten Position ausgewiesen). Die Berechnung läuft gemeinsam über `SummenMixin` aus der Brutto-Summe je Satz; `Netto + MwSt. = Brutto` gilt jetzt auch bei Gutschriften immer.
-* **Kleinunternehmerregelung:** Neuer Schalter in den Einstellungen, Merkfeld `kleinunternehmer` pro Angebot, Rechnung und Gutschrift (beim Anlegen festgehalten), Gutschrift übernimmt den Status der Rechnung. PDF-Vorlagen, Detailansichten und Formulare passen sich an (nur Gesamtbetrag, Hinweis auf § 19 UStG, MwSt.-Spalte im Formular ausgeblendet).
-* **Migration `0014`:** Enthält die vier neuen Felder `kleinunternehmer` sowie nachgeholte Modelländerungen (entfernte Felder `bezahlt_am`, `bezahlt_betrag` und `vorlage` an der Rechnung, kleinere Feldanpassungen).
-* **Rechnungs-Detailansicht:** Status-Badge zeigt den Status wieder im Badge, die Abfrage des nicht mehr vorhandenen Felds `bezahlt_am` ist entfernt.
-* **PDF-Hinweis „Fortsetzung auf Seite n“:** Dezenter gestaltet (kleinere Schrift, kleineres Kästchen und kleinerer Pfeil).
-
-### Davor (2. November 2026)
-
-* **Artikelübersicht:** Bundle-Unterartikel eingerückt und standardmäßig eingeklappt (Pfeil-Button), „Bundle“-Badge, kräftigere Trennlinie zwischen Haupt-Artikeln, `prefetch_related` in `artikel_liste`.
-* **PDF-Seitenumbruch:** Unterer Seitenrand bei Briefpapier 28 mm, damit der Summenblock nicht mehr in die Fußzeile läuft (Angebote, Rechnungen, Gutschriften).
-* **PDF-Summenblock:** Nettobetrag/MwSt./Gesamtbetrag erscheinen nur einmal am Ende der Positionstabelle (`display: table-row-group`) statt auf jeder Seite.
-* **PDF-Kopfzeile:** Zusätzlicher Abstand unter der Kopfzeile, damit die Seitennummer nicht auf der Tabellenkopfzeile sitzt (inzwischen durch das Briefkopf-Layout ersetzt).
-* **Leistungszeitraum:** Neuer Platzhalter `{{rechnung_leistungsmonat}}` (ohne neues Datenbankfeld) für die vereinfachte Angabe des Leistungsmonats auf Rechnungen.
 
 ---
 
@@ -504,33 +472,25 @@ Reihenfolge nach Priorität. Reverse Charge ist für uns nicht relevant und wird
 
 ### 1. Unveränderbarkeit (GoBD) – Rest
 
-Umgesetzt: Rechnungen sind ab „Bezahlt“ gesperrt und archiviert (siehe [Unveränderbarkeit (GoBD)](#rechnungen)). Offen:
+Umgesetzt: Rechnungen und Gutschriften sind ab „Gesendet“ gesperrt und archiviert, Angebote bewusst nicht (siehe [Unveränderbarkeit (GoBD)](#rechnungen)). Offen:
 
-* Konzept mit dem Steuerberater abstimmen: Reicht die Sperre erst ab „Bezahlt“, oder sollen versendete Rechnungen ebenfalls gesperrt werden? Bis zur Zahlung ist eine versendete Rechnung änderbar, und das ausgelieferte PDF kann dann von dem abweichen, was der Kunde erhalten hat. Eine Möglichkeit wäre, das PDF schon beim Versand zu archivieren.
-* Sollen „Storniert“ und versendete Gutschriften ebenfalls gesperrt werden (Storniert ist heute nicht gesperrt)? Versendete Rechnungen sollten storniert statt gelöscht werden, damit der Nummernkreis nachvollziehbar bleibt (ein Lösch-View für Rechnungen existiert nicht).
-* Interne Notizen einer gesperrten Rechnung sind auf Modellebene änderbar, haben aber noch keine Oberfläche.
+* Stornierung statt Löschen: Versendete Rechnungen sollten storniert statt gelöscht werden, damit der Nummernkreis nachvollziehbar bleibt (ein Lösch-View für Rechnungen existiert nicht). Der Status „Storniert“ einer Gutschrift hat nach der Sperre keine Oberfläche mehr, er lässt sich nur noch auf Modellebene setzen.
+* Entwurfs-Gutschriften: Beim Anlegen einer Gutschrift zu einer versendeten Rechnung wird deren Status sofort auf „Teilgutgeschrieben“ oder „Storniert“ gesetzt, und der offene Betrag rechnet alle Gutschriften außer „Storniert“ ein, auch noch nicht versendete Entwürfe. Klären, ob nur versendete Gutschriften verrechnet werden sollen.
+* Das Versanddatum `gesendet_am` wird nur beim Versand über den Button gesetzt, nicht beim manuellen Setzen des Status „Gesendet“ im Formular.
+* Interne Notizen einer gesperrten Rechnung oder Gutschrift sind auf Modellebene änderbar, haben aber noch keine Oberfläche.
+* Eine gesperrte Rechnung im Django-Admin zu speichern führt zu einem Fehler (`RechnungGesperrt`); eine freundlichere Meldung oder ein schreibgeschütztes Admin-Formular wären sauberer. Gutschriften sind im Admin nicht registriert.
 
 ### 2. Bessere Wartbarkeit (doppelter Code)
 
-* Gemeinsames Basis-Template für die drei PDF-Vorlagen (`{% extends %}` mit Blöcken für Titel, Meta-Tabelle, Empfänger, Schlusstext), damit Layoutänderungen nur einmal nötig sind. Der neue Briefkopf, die Adress- und die Steuerzeilen-Logik stecken inzwischen in je drei PDF-, Detail- und Formularvorlagen (gemeinsame Includes würden das vereinfachen).
-* Die alten, nicht mehr benutzten Hilfsfunktionen `_seiten_y` und `_seiten_y_gutschrift` in `views.py` entfernen.
 * Automatische Tests für Summenberechnung (gemischte Steuersätze, Kleinunternehmer, Cent-Rundung), offenen Betrag, Gutschriften-Verrechnung, Nummernkreise, das Merkfeld `kleinunternehmer`, die Sperrlogik (`gesperrt_am`) und das Profil-Handling.
-
-### 3. Dokument duplizieren
-
-* Funktion „Kopie erstellen“ für Angebote und Rechnungen (Positionen, Texte, Kunde und Absenderprofil übernehmen; neue Nummer, Status `Entwurf`, aktuelles Datum). Der Kleinunternehmer-Status der Kopie folgt dabei dem aktuellen Stand der Einstellungen.
 
 ### Weitere offene Punkte
 
-* **Bundle-Preis:** Der Preis eines Bundles soll berechnet statt gespeichert werden (Summe aus Menge × Einzelpreis der Unterartikel, Property am Artikel; Formularfeld bei Bundles ausblenden, inaktive Unterartikel klären).
+* **Datenwiederherstellung:** Bisher zurückgestellt. Idee für später: kein Button in der App, sondern ein Management-Befehl (`python manage.py daten_wiederherstellen <ZIP>`) für den Zustand bei gestopptem Server, mit Prüfung des ZIP (`integrity_check`, Pfade, Migrationsstand), automatischer Sicherung des Ist-Zustands und Warnung vor veralteten Backups (Gefahr doppelt vergebener Rechnungsnummern), dazu ein `.bat` zum Draufziehen des ZIP.
 * Absenderprofile: Beim Ersetzen von Logo oder Briefpapier gibt es keinen Weg, die Datei ersatzlos zu entfernen (z. B. Link „Logo entfernen“). Optional eigene Standardtexte je Profil.
-* Die ungenutzten Felder `logo` und `hintergrund_pdf` am Modell `Einstellungen` per Migration entfernen.
-* Fußzeile ohne Briefpapier am Seitenende verankern statt direkt unter dem Inhalt.
-* Probedruck des Adressfensters auf einem echten Umschlag (Annahme: Fenster 49 mm von oben, 20 mm von links, 45 mm hoch); optional Falzmarken bei 105 mm und 210 mm.
 * Steuerhinweis bei 0 %-Positionen (Freitext, z. B. Befreiungsgrund): bisher nur über den Schlusstext möglich, ggf. später eigenes Feld.
 * Kleinunternehmer-Hinweistext ist fest in den PDF-Vorlagen hinterlegt; ggf. in den Einstellungen editierbar machen.
 * Gutschrift von Hand anlegen und im Formular eine Rechnung wählen: Das Formular zeigt den Hinweis zunächst nach dem aktuellen Stand der Einstellungen, gespeichert wird der Status der Rechnung; das Profil bleibt der Formularauswahl entsprechend (nicht automatisch das der gewählten Rechnung).
 * Rechnungs-Detailansicht: Datum der letzten Zahlung in den Rechnungsdaten anzeigen (optional, als Eigenschaft aus den Zahlungen).
 * Platzhalter `{{rechnung_leistungsmonat}}` im Dropdown „Platzhalter einfügen…“ ergänzen (Rechnungsformular und Einstellungen).
 * Bundle-Artikel auch in Rechnungen und Gutschriften einfügbar machen (aktuell nur in Angeboten).
-* `{{kunde_vorname}}` und `{{kunde_nachname}}` in den E-Mail-Vorlagen ergänzen.

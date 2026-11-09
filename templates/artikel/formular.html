@@ -56,8 +56,9 @@
                             Bundle-Artikel (besteht aus mehreren Einzelartikeln)
                         </span>
                         <p style="margin: 4px 0 0 0; font-size: 12px; color: #888;">
-                            Bei Bundle-Artikeln wird kein eigener Preis verwendet – stattdessen werden beim Einfügen
-                            in ein Angebot die Einzelartikel unten automatisch eingefügt.
+                            Bei Bundle-Artikeln gibt es keinen eigenen Preis: Er wird aus den Einzelartikeln unten
+                            berechnet, und beim Einfügen in ein Angebot werden diese automatisch eingefügt.
+                            Inaktive (gelöschte) Einzelartikel zählen nicht mit.
                         </p>
                     </div>
                 </div>
@@ -76,7 +77,10 @@
 <!-- BUNDLE-POSITIONEN – nur sichtbar wenn is_bundle aktiv -->
 <div class="card" id="bundle-card" style="margin-top: 16px; display: none;">
     <div class="card-header">
-        <div class="card-titel">Bundle-Positionen</div>
+        <div class="card-titel">Bundle-Positionen{% if form.instance.pk and form.instance.is_bundle %}
+            <span style="font-weight: 400; color: #888; font-size: 13px;">
+                · berechneter Preis (gespeichert): {{ form.instance.preis }} €
+            </span>{% endif %}</div>
         <button type="button" class="btn btn-secondary"
                 onclick="bundlePositionHinzufuegen()"
                 style="font-size: 12px; padding: 6px 12px;">
@@ -141,11 +145,11 @@ document.addEventListener('DOMContentLoaded', function () {
     function sichtbarkeitAktualisieren() {
         if (chk.checked) {
             bundleCard.style.display  = '';
-            // Preis-Feld ausgrauen (Bundle hat keinen eigenen Preis)
-            if (preisGruppe) preisGruppe.style.opacity = '0.4';
+            // Preis-Feld ausblenden (der Bundle-Preis wird berechnet)
+            if (preisGruppe) preisGruppe.style.display = 'none';
         } else {
             bundleCard.style.display  = 'none';
-            if (preisGruppe) preisGruppe.style.opacity = '';
+            if (preisGruppe) preisGruppe.style.display = '';
         }
     }
 
